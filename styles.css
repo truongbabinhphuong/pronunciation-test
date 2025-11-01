@@ -1,0 +1,228 @@
+/* Custom styles for Pronunciation Competition app */
+
+/* Modal styles */
+.modal {
+    position: fixed;
+    top: 0;
+    left: 0;
+    width: 100%;
+    height: 100%;
+    background-color: rgba(0, 0, 0, 0.5);
+    display: flex;
+    justify-content: center;
+    align-items: center;
+    z-index: 1000;
+}
+
+.modal.hidden {
+    display: none;
+}
+
+.modal-content {
+    background: white;
+    padding: 2rem;
+    border-radius: 0.5rem;
+    width: 90%;
+    max-height: 90vh;
+    overflow-y: auto;
+    box-shadow: 0 20px 25px -5px rgba(0, 0, 0, 0.1), 0 10px 10px -5px rgba(0, 0, 0, 0.04);
+}
+
+/* Recording indicator animation */
+.recording-indicator {
+    width: 12px;
+    height: 12px;
+    background-color: #dc2626;
+    border-radius: 50%;
+    animation: pulse 1.5s ease-in-out infinite;
+}
+
+@keyframes pulse {
+    0%, 100% {
+        opacity: 1;
+    }
+    50% {
+        opacity: 0.3;
+    }
+}
+
+/* Waveform animation */
+.waveform-animation {
+    display: flex;
+    align-items: center;
+    gap: 3px;
+    height: 30px;
+}
+
+.waveform-animation::before,
+.waveform-animation::after {
+    content: '';
+    width: 4px;
+    background: #dc2626;
+    animation: waveform 1s ease-in-out infinite;
+}
+
+.waveform-animation::before {
+    height: 20px;
+}
+
+.waveform-animation::after {
+    height: 15px;
+    animation-delay: 0.3s;
+}
+
+@keyframes waveform {
+    0%, 100% {
+        transform: scaleY(1);
+    }
+    50% {
+        transform: scaleY(1.5);
+    }
+}
+
+/* Attempt card styles */
+.attempt-card {
+    border: 1px solid #e5e7eb;
+    border-radius: 0.5rem;
+    padding: 1rem;
+    transition: all 0.2s;
+}
+
+.attempt-card:hover {
+    box-shadow: 0 4px 6px -1px rgba(0, 0, 0, 0.1), 0 2px 4px -1px rgba(0, 0, 0, 0.06);
+}
+
+/* IPA display styles */
+.ipa-display {
+    font-family: 'Doulos SIL', 'Charis SIL', 'DejaVu Sans', sans-serif;
+    font-size: 1.125rem;
+    letter-spacing: 0.05em;
+}
+
+.phoneme {
+    display: inline-block;
+    padding: 0.125rem 0.25rem;
+    margin: 0.125rem;
+    border-radius: 0.25rem;
+}
+
+.phoneme.incorrect {
+    background-color: #fee2e2;
+    color: #dc2626;
+    font-weight: 600;
+}
+
+.phoneme.correct {
+    background-color: #d1fae5;
+    color: #059669;
+}
+
+/* Score display */
+.score-display {
+    font-size: 3rem;
+    font-weight: 700;
+    line-height: 1;
+}
+
+.score-high {
+    color: #059669;
+}
+
+.score-medium {
+    color: #f59e0b;
+}
+
+.score-low {
+    color: #dc2626;
+}
+
+/* Processing spinner */
+.spinner {
+    display: inline-block;
+    width: 20px;
+    height: 20px;
+    border: 3px solid rgba(0, 0, 0, 0.1);
+    border-radius: 50%;
+    border-top-color: #3b82f6;
+    animation: spin 1s ease-in-out infinite;
+}
+
+@keyframes spin {
+    to {
+        transform: rotate(360deg);
+    }
+}
+
+/* Mismatch hint styles */
+.mismatch-hint {
+    background-color: #fef3c7;
+    border-left: 4px solid #f59e0b;
+    padding: 0.5rem;
+    margin: 0.5rem 0;
+    border-radius: 0.25rem;
+    font-size: 0.875rem;
+}
+
+/* Audio player styles */
+audio {
+    width: 100%;
+    height: 40px;
+    margin: 0.5rem 0;
+}
+
+/* Responsive improvements */
+@media (max-width: 640px) {
+    .modal-content {
+        width: 95%;
+        padding: 1rem;
+    }
+    
+    .score-display {
+        font-size: 2rem;
+    }
+}
+
+/* Focus styles for accessibility */
+button:focus,
+input:focus,
+textarea:focus {
+    outline: 2px solid #3b82f6;
+    outline-offset: 2px;
+}
+
+/* Toast notification */
+.toast {
+    position: fixed;
+    bottom: 2rem;
+    right: 2rem;
+    background: #1f2937;
+    color: white;
+    padding: 1rem 1.5rem;
+    border-radius: 0.5rem;
+    box-shadow: 0 10px 15px -3px rgba(0, 0, 0, 0.1);
+    z-index: 1100;
+    animation: slideIn 0.3s ease-out;
+}
+
+@keyframes slideIn {
+    from {
+        transform: translateX(100%);
+        opacity: 0;
+    }
+    to {
+        transform: translateX(0);
+        opacity: 1;
+    }
+}
+
+.toast.success {
+    background: #059669;
+}
+
+.toast.error {
+    background: #dc2626;
+}
+
+.toast.warning {
+    background: #f59e0b;
+}
