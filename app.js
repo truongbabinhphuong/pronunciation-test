@@ -43,10 +43,11 @@ function loadAttempts() {
         if (attempt.audioBase64 && !attempt.audioBlob) {
             // Convert base64 back to blob
             const blob = base64ToBlob(attempt.audioBase64);
+            // Use destructuring to exclude audioBase64 from the returned object
+            const { audioBase64, ...attemptWithoutBase64 } = attempt;
             return {
-                ...attempt,
-                audioBlob: blob,
-                audioBase64: undefined // Remove base64 from memory
+                ...attemptWithoutBase64,
+                audioBlob: blob
             };
         }
         return attempt;
@@ -477,7 +478,7 @@ async function saveAttemptName() {
     };
     
     state.attempts.unshift(attempt);
-    saveAttempts();
+    await saveAttempts();
     renderAttempts();
     
     // Upload to server for analysis
@@ -890,7 +891,7 @@ async function uploadAttempt(attempt) {
                 aiComments
             };
             
-            saveAttempts();
+            await saveAttempts();
             renderAttempts();
         }
     } catch (error) {
@@ -901,7 +902,7 @@ async function uploadAttempt(attempt) {
         if (attemptIndex !== -1) {
             state.attempts[attemptIndex].status = 'error';
             state.attempts[attemptIndex].error = error.message || 'Failed to analyze pronunciation';
-            saveAttempts();
+            await saveAttempts();
             renderAttempts();
         }
     }
@@ -1110,11 +1111,11 @@ function renderIPAWithMatches(ipa, mismatches, isExpected) {
 /**
  * Update attempt name
  */
-function updateAttemptName(attemptId, newName) {
+async function updateAttemptName(attemptId, newName) {
     const attempt = state.attempts.find(a => a.id === attemptId);
     if (attempt) {
         attempt.name = newName;
-        saveAttempts();
+        await saveAttempts();
         showToast('Attempt name updated', 'success');
     }
 }
@@ -1122,11 +1123,11 @@ function updateAttemptName(attemptId, newName) {
 /**
  * Update attempt notes
  */
-function updateAttemptNotes(attemptId, notes) {
+async function updateAttemptNotes(attemptId, notes) {
     const attempt = state.attempts.find(a => a.id === attemptId);
     if (attempt) {
         attempt.teacherNotes = notes;
-        saveAttempts();
+        await saveAttempts();
         showToast('Teacher notes saved', 'success');
     }
 }
@@ -1134,11 +1135,11 @@ function updateAttemptNotes(attemptId, notes) {
 /**
  * Toggle reveal for single attempt
  */
-function toggleReveal(attemptId) {
+async function toggleReveal(attemptId) {
     const attempt = state.attempts.find(a => a.id === attemptId);
     if (attempt) {
         attempt.revealed = !attempt.revealed;
-        saveAttempts();
+        await saveAttempts();
         renderAttempts();
     }
 }
@@ -1146,10 +1147,10 @@ function toggleReveal(attemptId) {
 /**
  * Delete attempt
  */
-function deleteAttempt(attemptId) {
+async function deleteAttempt(attemptId) {
     if (confirm('Are you sure you want to delete this attempt?')) {
         state.attempts = state.attempts.filter(a => a.id !== attemptId);
-        saveAttempts();
+        await saveAttempts();
         renderAttempts();
         showToast('Attempt deleted', 'success');
     }
@@ -1162,7 +1163,7 @@ function deleteAttempt(attemptId) {
 /**
  * Toggle reveal all results
  */
-function toggleRevealAll() {
+async function toggleRevealAll() {
     state.globalRevealAll = !state.globalRevealAll;
     
     state.attempts.forEach(attempt => {
@@ -1171,7 +1172,7 @@ function toggleRevealAll() {
         }
     });
     
-    saveAttempts();
+    await saveAttempts();
     renderAttempts();
     showToast(state.globalRevealAll ? 'All results revealed' : 'All results hidden', 'success');
 }
@@ -1209,10 +1210,10 @@ function exportAttempts() {
 /**
  * Clear all attempts
  */
-function clearAll() {
+async function clearAll() {
     if (confirm('Are you sure you want to clear all attempts? This cannot be undone.')) {
         state.attempts = [];
-        saveAttempts();
+        await saveAttempts();
         renderAttempts();
         showToast('All attempts cleared', 'success');
     }
