@@ -34,91 +34,134 @@ A complete web application for running pronunciation competitions. Teachers can 
 
 ## 🚀 Quick Start
 
-### 1. Clone the Repository
+This application has two components:
+1. **Frontend (Webapp)** - Static HTML/JS that can be hosted on GitHub Pages
+2. **Backend (Server)** - Node.js server that handles Gemini AI API calls
 
-```bash
-git clone <repository-url>
-cd pronunciation-test
-```
+### Option A: GitHub Pages Deployment (Recommended)
 
-### 2. Set Up the Server
+This is the easiest way to get started. The frontend is automatically deployed to GitHub Pages, and you only need to set up the backend server.
+
+#### Step 1: Use the Live Frontend
+
+The webapp is already deployed and available at:
+**https://truongbabinhphuong.github.io/pronunciation-test/**
+
+#### Step 2: Set Up Your Backend Server
+
+The backend server handles all Gemini AI API calls and must be deployed separately (it cannot run on GitHub Pages since it requires server-side processing).
+
+##### 2a. Install Dependencies
 
 ```bash
 cd server
 npm install
 ```
 
-### 3. Configure Environment Variables
+##### 2b. Configure Gemini API
 
-#### Server Configuration
-
-Copy the server's example environment file and add your Gemini API key:
+Create a `.env` file in the `server` directory with your Gemini API key:
 
 ```bash
 cd server
 cp .env.example .env
 ```
 
-Edit `server/.env` and set your `GEMINI_API_KEY`:
+Edit `server/.env` and add your **actual** Gemini API key:
 
 ```env
-GEMINI_API_KEY=your-actual-api-key-here
+GEMINI_API_KEY=your-actual-gemini-api-key-here
 GEMINI_MODEL=gemini-2.5-flash
 PORT=3000
 USE_FORCED_ALIGNER=false
 CORS_ORIGIN=*
 ```
 
-**Important**: Get your Gemini API key from [Google AI Studio](https://makersuite.google.com/app/apikey)
+**🔑 Get your Gemini API key:** [Google AI Studio](https://makersuite.google.com/app/apikey)
 
-#### Webapp Configuration (Optional)
+**⚠️ Security Note:** The API key must ONLY be in the server `.env` file. Never commit it to Git or include it in the frontend.
 
-For the frontend webapp, you can also configure the API URL via environment variables:
-
-```bash
-cd ..  # Back to root directory
-cp .env.example .env
-```
-
-Edit `.env` and set your API URL:
-
-```env
-API_URL=http://localhost:3000
-```
-
-Then run the build script to generate the config:
+##### 2c. Start the Server
 
 ```bash
-node build.js
-```
-
-This creates a `config.js` file that the webapp will use for default configuration.
-
-**Security Note**: API keys should NEVER be included in the webapp configuration. All API keys must remain on the server side only. The webapp `.env` file only configures the server URL.
-
-**Note**: If you don't create a webapp `.env` file, the default configuration will be used.
-
-### 4. Start the Server
-
-```bash
-cd server
 npm start
 ```
 
 The server will start on `http://localhost:3000`
 
-### 5. Build the Webapp Configuration (Optional)
+##### 2d. Configure the Frontend
 
-If you configured the webapp `.env` file:
+Open the deployed webapp: https://truongbabinhphuong.github.io/pronunciation-test/
+
+1. Click the **Settings** button (⚙️) in the top-right
+2. Enter your server URL: `http://localhost:3000` (or your deployed server URL)
+3. Click **Save Settings**
+
+Now you can start recording and analyzing pronunciation!
+
+#### Step 3: Deploy Your Backend (Optional)
+
+For production use, deploy your backend server to a cloud platform:
+
+**Deployment Options:**
+- **Heroku**: 
+  1. Create app and set config: `heroku create your-app-name`
+  2. Set environment variables (see detailed instructions below)
+  3. Deploy server directory: `git subtree push --prefix server heroku main`
+- **Railway**: Connect your repo, set root directory to `server/`, deploy from dashboard
+- **Render**: Connect your repo, set root directory to `server/`, deploy from dashboard  
+- **Google Cloud Run**: Deploy from `server/` directory: `gcloud run deploy --source=./server`
+- **Your own VPS**: Run with PM2 or systemd from the `server/` directory
+
+After deploying, update the server URL in the webapp settings to your deployed backend URL (e.g., `https://your-app.herokuapp.com`).
+
+**For production, update CORS_ORIGIN in your server `.env`:**
+```env
+CORS_ORIGIN=https://truongbabinhphuong.github.io
+```
+
+### Option B: Local Development Setup
+
+If you want to run both frontend and backend locally:
+
+#### 1. Clone the Repository
 
 ```bash
-cd ..  # Back to root directory
+git clone https://github.com/truongbabinhphuong/pronunciation-test.git
+cd pronunciation-test
+```
+
+#### 2. Set Up Backend Server
+
+```bash
+cd server
+npm install
+cp .env.example .env
+```
+
+Edit `server/.env` and add your Gemini API key (see Option A, Step 2b above).
+
+Start the server:
+```bash
+npm start
+```
+
+#### 3. Configure Frontend
+
+The frontend is already configured to use `http://localhost:3000` by default.
+
+You can optionally customize it by editing `.env` in the root directory:
+
+```env
+API_URL=http://localhost:3000
+```
+
+Then regenerate `config.js`:
+```bash
 node build.js
 ```
 
-This generates `config.js` from your `.env` configuration.
-
-### 6. Open the Frontend
+#### 4. Run the Frontend Locally
 
 Open `index.html` in your browser, or use a local web server:
 
@@ -135,34 +178,56 @@ start index.html # Windows
 xdg-open index.html # Linux
 ```
 
-### 7. Configure the Frontend (if needed)
+Then visit `http://localhost:8000` in your browser.
 
-If you ran `node build.js`, the webapp will automatically use the configured API URL from your `.env` file.
+## 🎤 Using the Application
 
-Otherwise, you can manually configure it:
+### 1. Configure Server Connection (First Time Only)
 
-1. Click the **Settings** button (⚙️) in the top-right
-2. Enter the server URL: `http://localhost:3000`
-3. Optionally enter your teacher name
-4. Click **Save Settings**
+If using the GitHub Pages deployment, you'll need to configure the server URL once:
 
-### 8. Test the Microphone
+1. Open the webapp in your browser
+2. Click the **Settings** button (⚙️) in the top-right
+3. Enter your server URL (e.g., `http://localhost:3000` or your deployed backend URL)
+4. Optionally enter your teacher name
+5. Click **Save Settings**
+
+The settings are saved in your browser's localStorage and won't need to be entered again.
+
+### 2. Test the Microphone
 
 1. Click **Test Microphone** to grant browser permissions
 2. Allow microphone access when prompted
 
-### 9. Start Recording Attempts
+### 3. Set Target Word
 
 1. Enter a target word (e.g., "through")
-2. Optionally enter expected IPA (or click "Lookup IPA")
+2. Optionally enter expected IPA (or click "Lookup IPA" to fetch from Gemini)
 3. Click **Set Word**
-4. Click **Start Recording**
-5. Say the word
-6. Click **Stop Recording**
-7. Enter student name (e.g., "Alice - Round 1")
-8. Click **Save & Upload**
 
-The system will analyze the pronunciation and show a processing indicator. Once complete, click **Reveal** to see the results!
+### 4. Record and Analyze
+
+1. Click **Start Recording**
+2. Say the target word clearly
+3. Click **Stop Recording**
+4. Enter student name (e.g., "Alice - Round 1")
+5. Click **Save & Upload**
+
+The system will analyze the pronunciation using Gemini AI (gemini-2.5-flash model) and show a processing indicator. 
+
+Once complete, click **Reveal** to see the detailed results including:
+- Pronunciation score percentage
+- IPA comparison (expected vs. actual)
+- Color-coded phoneme matching
+- Specific hints for mispronounced phonemes
+- AI-generated feedback
+
+### 5. Manage Results
+
+- **Reveal/Hide Results**: Control when students see their scores
+- **Export JSON**: Download all attempts and analyses
+- **Clear All**: Remove all attempts (with confirmation)
+- **Edit Names**: Click on any attempt name to edit it
 
 ## 📦 Project Structure
 
@@ -257,63 +322,80 @@ Change the model in `server/.env`:
 GEMINI_MODEL=gemini-1.5-pro
 ```
 
-## 🌐 Deployment
+## 🌐 Deployment Details
 
-### Frontend Deployment (GitHub Pages)
+### Frontend (GitHub Pages)
 
-This repository is configured with GitHub Actions to automatically deploy to GitHub Pages.
+The frontend is automatically deployed to GitHub Pages via GitHub Actions.
 
-**Live Demo**: The webapp is available at: `https://truongbabinhphuong.github.io/pronunciation-test/`
+**Live Site**: https://truongbabinhphuong.github.io/pronunciation-test/
 
-#### Automatic Deployment
+#### How It Works
 
-The webapp is automatically deployed to GitHub Pages whenever changes are pushed to the `main` branch. The GitHub Actions workflow (`.github/workflows/deploy-pages.yml`) handles the deployment.
+1. When you push to the `main` branch, GitHub Actions automatically:
+   - Checks out the code
+   - Generates `config.js` from `.env` using `node build.js`
+   - Deploys the static files to GitHub Pages
 
-#### Manual Setup (if needed)
+2. The workflow is defined in `.github/workflows/deploy-pages.yml`
 
-If you need to set up GitHub Pages manually:
+#### Forking and Deploying Your Own
 
-1. **Push to GitHub**
-   ```bash
-   git add index.html app.js styles.css
-   git commit -m "Add pronunciation competition frontend"
-   git push origin main
-   ```
+If you fork this repository:
 
-2. **Enable GitHub Pages**
-   - Go to repository Settings → Pages
-   - Under "Build and deployment", select "GitHub Actions" as the source
-   - The site will be automatically deployed
-   - Your site will be available at `https://yourusername.github.io/pronunciation-test/`
+1. **Enable GitHub Pages** in your repository:
+   - Go to Settings → Pages
+   - Under "Build and deployment", select "GitHub Actions"
 
-3. **Update frontend settings**
-   - Open your deployed site
-   - Click Settings (⚙️)
-   - Set server URL to your backend server (see below)
+2. **Update the API URL** (optional):
+   - Edit `.env` in the root directory to point to your backend server
+   - Commit and push - GitHub Actions will regenerate `config.js` automatically
 
-### Backend Deployment
+3. Your site will be at: `https://yourusername.github.io/pronunciation-test/`
 
-Deploy the server on a controlled VM, cloud instance, or local machine:
+### Backend (Server) Deployment
 
-#### Option 1: Local Machine / VM
+The backend **cannot** run on GitHub Pages (it requires server-side processing). Deploy it separately:
+
+#### Deployment Options
+
+**Option 1: Local Machine / Development**
 
 ```bash
 cd server
 npm install
-# Set up .env with your API key
+# Set up .env with your Gemini API key (see Quick Start above)
 npm start
 ```
 
-Make sure port 3000 is accessible to your frontend.
+Your server will be at `http://localhost:3000`. Use ngrok or a similar tool to make it accessible from the internet if needed.
 
-#### Option 2: Cloud Services (Heroku, Railway, Render, etc.)
+**Option 2: Cloud Platforms (Recommended for Production)**
 
-1. Create account on your chosen platform
-2. Deploy the `server/` directory
-3. Set environment variables in platform dashboard
-4. Note the deployed URL (e.g., `https://your-app.herokuapp.com`)
+Deploy to a cloud platform of your choice:
 
-#### Option 3: Docker
+- **Heroku**: 
+  ```bash
+  # From repository root
+  heroku create your-app-name
+  heroku config:set GEMINI_API_KEY=your-key
+  heroku config:set GEMINI_MODEL=gemini-2.5-flash
+  heroku config:set CORS_ORIGIN=https://truongbabinhphuong.github.io
+  # Deploy only the server subdirectory
+  git subtree push --prefix server heroku main
+  ```
+  
+  **Note**: This uses `git subtree` to deploy only the `server/` directory to Heroku.
+
+- **Railway** / **Render**: 
+  1. Connect your GitHub repository
+  2. Set root directory to `server/`
+  3. Add environment variables via dashboard
+  4. Deploy automatically
+
+- **Google Cloud Run** / **AWS** / **Azure**: Follow platform-specific guides
+
+**Option 3: Docker**
 
 ```dockerfile
 # server/Dockerfile
@@ -327,9 +409,16 @@ CMD ["node", "server.js"]
 ```
 
 ```bash
-docker build -t pronunciation-server ./server
-docker run -p 3000:3000 --env-file server/.env pronunciation-server
+cd server
+docker build -t pronunciation-server .
+docker run -p 3000:3000 --env-file .env pronunciation-server
 ```
+
+#### After Deployment
+
+1. Note your backend URL (e.g., `https://your-app.herokuapp.com`)
+2. Update `CORS_ORIGIN` in your server `.env` to your GitHub Pages URL
+3. Open the GitHub Pages site and configure the server URL in settings
 
 ### Security Considerations
 
