@@ -7,12 +7,59 @@
 // STATE MANAGEMENT
 // ============================================================================
 
+/**
+ * Convert base64 data URL to Blob
+ */
+function base64ToBlob(base64Data) {
+    if (!base64Data) return null;
+    
+    // Split the data URL
+    const parts = base64Data.split(',');
+    if (parts.length !== 2) return null;
+    
+    // Get the MIME type
+    const mimeMatch = parts[0].match(/:(.*?);/);
+    const mimeType = mimeMatch ? mimeMatch[1] : 'audio/webm';
+    
+    // Decode base64
+    const byteString = atob(parts[1]);
+    
+    // Convert to array buffer
+    const arrayBuffer = new ArrayBuffer(byteString.length);
+    const uint8Array = new Uint8Array(arrayBuffer);
+    for (let i = 0; i < byteString.length; i++) {
+        uint8Array[i] = byteString.charCodeAt(i);
+    }
+    
+    return new Blob([arrayBuffer], { type: mimeType });
+}
+
+/**
+ * Load attempts from localStorage and convert base64 audio back to blobs
+ */
+function loadAttempts() {
+    const storedAttempts = JSON.parse(localStorage.getItem('attempts') || '[]');
+    return storedAttempts.map(attempt => {
+        if (attempt.audioBase64 && !attempt.audioBlob) {
+            // Convert base64 back to blob
+            const blob = base64ToBlob(attempt.audioBase64);
+            // Use destructuring to exclude audioBase64 from the returned object
+            const { audioBase64, ...attemptWithoutBase64 } = attempt;
+            return {
+                ...attemptWithoutBase64,
+                audioBlob: blob
+            };
+        }
+        return attempt;
+    });
+}
+
 let state = {
     geminiApiKey: localStorage.getItem('geminiApiKey') || '',
     teacherName: localStorage.getItem('teacherName') || '',
     targetWord: '',
     expectedIPA: '',
-    attempts: JSON.parse(localStorage.getItem('attempts') || '[]'),
+    attempts: loadAttempts(),
     mediaRecorder: null,
     audioChunks: [],
     recordingStartTime: null,
@@ -42,9 +89,37 @@ function showToast(message, type = 'info') {
 
 /**
  * Save attempts to localStorage
+ * Convert audio blobs to base64 for storage
  */
-function saveAttempts() {
-    localStorage.setItem('attempts', JSON.stringify(state.attempts));
+async function saveAttempts() {
+    const attemptsToSave = await Promise.all(state.attempts.map(async (attempt) => {
+        if (attempt.audioBlob && attempt.audioBlob instanceof Blob) {
+            // Convert blob to base64 for storage
+            const base64Audio = await blobToBase64WithPrefix(attempt.audioBlob);
+            return {
+                ...attempt,
+                audioBlob: null,
+                audioBase64: base64Audio,
+                audioType: attempt.audioBlob.type
+            };
+        }
+        return attempt;
+    }));
+    localStorage.setItem('attempts', JSON.stringify(attemptsToSave));
+}
+
+/**
+ * Convert blob to base64 with data URL prefix
+ */
+function blobToBase64WithPrefix(blob) {
+    return new Promise((resolve, reject) => {
+        const reader = new FileReader();
+        reader.onloadend = () => {
+            resolve(reader.result);
+        };
+        reader.onerror = reject;
+        reader.readAsDataURL(blob);
+    });
 }
 
 /**
@@ -148,7 +223,7 @@ async function getIPAFromGemini(word) {
         
         // Gemini API requires key in URL parameter (official API design)
         const response = await fetch(
-            `https://generativelanguage.googleapis.com/v1beta/models/gemini-2.5-flash:generateContent?key=${state.geminiApiKey}`,
+            `https://generativelanguage.googleapis.com/v1beta/models/gemini-1.5-flash:generateContent?key=${state.geminiApiKey}`,
             {
                 method: 'POST',
                 headers: {
@@ -403,7 +478,7 @@ async function saveAttemptName() {
     };
     
     state.attempts.unshift(attempt);
-    saveAttempts();
+    await saveAttempts();
     renderAttempts();
     
     // Upload to server for analysis
@@ -440,7 +515,7 @@ Return just the IPA symbols for what you hear.`;
 
         // Gemini API requires key in URL parameter (official API design)
         const response = await fetch(
-            `https://generativelanguage.googleapis.com/v1beta/models/gemini-2.5-flash:generateContent?key=${state.geminiApiKey}`,
+            `https://generativelanguage.googleapis.com/v1beta/models/gemini-1.5-flash:generateContent?key=${state.geminiApiKey}`,
             {
                 method: 'POST',
                 headers: {
@@ -523,7 +598,7 @@ Return ONLY valid JSON, no additional text.`;
 
         // Gemini API requires key in URL parameter (official API design)
         const response = await fetch(
-            `https://generativelanguage.googleapis.com/v1beta/models/gemini-2.5-flash:generateContent?key=${state.geminiApiKey}`,
+            `https://generativelanguage.googleapis.com/v1beta/models/gemini-1.5-flash:generateContent?key=${state.geminiApiKey}`,
             {
                 method: 'POST',
                 headers: {
@@ -816,7 +891,7 @@ async function uploadAttempt(attempt) {
                 aiComments
             };
             
-            saveAttempts();
+            await saveAttempts();
             renderAttempts();
         }
     } catch (error) {
@@ -827,7 +902,7 @@ async function uploadAttempt(attempt) {
         if (attemptIndex !== -1) {
             state.attempts[attemptIndex].status = 'error';
             state.attempts[attemptIndex].error = error.message || 'Failed to analyze pronunciation';
-            saveAttempts();
+            await saveAttempts();
             renderAttempts();
         }
     }
@@ -1036,11 +1111,18 @@ function renderIPAWithMatches(ipa, mismatches, isExpected) {
 /**
  * Update attempt name
  */
-function updateAttemptName(attemptId, newName) {
+async function updateAttemptName(attemptId, newName) {
     const attempt = state.attempts.find(a => a.id === attemptId);
     if (attempt) {
-        attempt.name = newName;
-        saveAttempts();
+        // Validate name is not empty
+        const trimmedName = newName.trim();
+        if (!trimmedName) {
+            showToast('Attempt name cannot be empty', 'warning');
+            renderAttempts(); // Re-render to restore original name in UI
+            return;
+        }
+        attempt.name = trimmedName;
+        await saveAttempts();
         showToast('Attempt name updated', 'success');
     }
 }
@@ -1048,11 +1130,11 @@ function updateAttemptName(attemptId, newName) {
 /**
  * Update attempt notes
  */
-function updateAttemptNotes(attemptId, notes) {
+async function updateAttemptNotes(attemptId, notes) {
     const attempt = state.attempts.find(a => a.id === attemptId);
     if (attempt) {
         attempt.teacherNotes = notes;
-        saveAttempts();
+        await saveAttempts();
         showToast('Teacher notes saved', 'success');
     }
 }
@@ -1060,11 +1142,11 @@ function updateAttemptNotes(attemptId, notes) {
 /**
  * Toggle reveal for single attempt
  */
-function toggleReveal(attemptId) {
+async function toggleReveal(attemptId) {
     const attempt = state.attempts.find(a => a.id === attemptId);
     if (attempt) {
         attempt.revealed = !attempt.revealed;
-        saveAttempts();
+        await saveAttempts();
         renderAttempts();
     }
 }
@@ -1072,10 +1154,10 @@ function toggleReveal(attemptId) {
 /**
  * Delete attempt
  */
-function deleteAttempt(attemptId) {
+async function deleteAttempt(attemptId) {
     if (confirm('Are you sure you want to delete this attempt?')) {
         state.attempts = state.attempts.filter(a => a.id !== attemptId);
-        saveAttempts();
+        await saveAttempts();
         renderAttempts();
         showToast('Attempt deleted', 'success');
     }
@@ -1088,7 +1170,7 @@ function deleteAttempt(attemptId) {
 /**
  * Toggle reveal all results
  */
-function toggleRevealAll() {
+async function toggleRevealAll() {
     state.globalRevealAll = !state.globalRevealAll;
     
     state.attempts.forEach(attempt => {
@@ -1097,7 +1179,7 @@ function toggleRevealAll() {
         }
     });
     
-    saveAttempts();
+    await saveAttempts();
     renderAttempts();
     showToast(state.globalRevealAll ? 'All results revealed' : 'All results hidden', 'success');
 }
@@ -1135,10 +1217,10 @@ function exportAttempts() {
 /**
  * Clear all attempts
  */
-function clearAll() {
+async function clearAll() {
     if (confirm('Are you sure you want to clear all attempts? This cannot be undone.')) {
         state.attempts = [];
-        saveAttempts();
+        await saveAttempts();
         renderAttempts();
         showToast('All attempts cleared', 'success');
     }
