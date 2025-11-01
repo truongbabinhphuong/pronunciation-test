@@ -1114,7 +1114,14 @@ function renderIPAWithMatches(ipa, mismatches, isExpected) {
 async function updateAttemptName(attemptId, newName) {
     const attempt = state.attempts.find(a => a.id === attemptId);
     if (attempt) {
-        attempt.name = newName;
+        // Validate name is not empty
+        const trimmedName = newName.trim();
+        if (!trimmedName) {
+            showToast('Attempt name cannot be empty', 'warning');
+            renderAttempts(); // Re-render to restore original name in UI
+            return;
+        }
+        attempt.name = trimmedName;
         await saveAttempts();
         showToast('Attempt name updated', 'success');
     }
