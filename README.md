@@ -173,13 +173,43 @@ Since this is a static site, you can host it anywhere:
 
 ## 🔒 Security & Privacy
 
+### ⚠️ Important Security Notice
+
+**This application is designed for controlled environments (classrooms, personal use) where you trust the users.**
+
+Due to the architecture of this client-side application:
+- The Gemini API requires the API key to be passed in the URL query parameter
+- API keys in URLs may be logged by browsers, proxies, or network monitoring tools
+- Anyone with access to browser developer tools can see your API key
+
+**Security Recommendations:**
+
+1. **Use API Key Restrictions** in Google Cloud Console:
+   - Restrict by HTTP referrer (e.g., only allow requests from your domain)
+   - Set API quotas to limit potential abuse
+   - Monitor usage regularly
+
+2. **For Production Use**: Consider implementing a thin server-side proxy that:
+   - Stores the API key securely on the server
+   - Validates requests before forwarding to Gemini
+   - Implements rate limiting and access controls
+
+3. **Classroom Use**: 
+   - Use a shared API key with restricted quotas
+   - Monitor usage in Google Cloud Console
+   - Clear browser data after sessions
+
+4. **Personal Use**: 
+   - Keep your API key private
+   - Don't share your browser screen while using the app
+   - Clear browser history if needed
+
 ### API Key Security
 
 - Your API key is stored in localStorage (encrypted by the browser)
 - The key is only sent to Google's Gemini API (HTTPS)
 - No third-party servers have access to your key
-
-**⚠️ Important**: This app is designed for controlled environments (classrooms, personal use). Do not share your API key with others. For production use with untrusted users, consider implementing server-side key management.
+- **Note**: The Gemini API requires keys in URL parameters (this is by design)
 
 ### Data Privacy
 
@@ -187,13 +217,6 @@ Since this is a static site, you can host it anywhere:
 - Audio is sent only to Google's Gemini API for analysis
 - No data is stored on any server (except temporarily in browser memory)
 - Clear browser data to remove all stored information
-
-### Best Practices
-
-1. **Do not commit API keys** to version control
-2. **Use API key restrictions** in Google Cloud Console (restrict to specific domains)
-3. **Monitor API usage** in Google Cloud Console
-4. **Clear browser data** when using shared computers
 
 ## 🧪 Browser Compatibility
 

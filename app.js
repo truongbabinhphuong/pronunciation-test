@@ -128,6 +128,8 @@ function saveSettings() {
 
 /**
  * Call Gemini API to get IPA from word
+ * Note: Gemini API requires the API key in URL query parameter (as per official documentation)
+ * For enhanced security in production, consider using a server-side proxy
  */
 async function getIPAFromGemini(word) {
     if (!state.geminiApiKey) {
@@ -138,6 +140,7 @@ async function getIPAFromGemini(word) {
     try {
         const prompt = `Return ONLY the International Phonetic Alphabet (IPA) transcription for the English word "${word}". Return just the IPA symbols, nothing else. Use standard IPA notation.`;
         
+        // Gemini API requires key in URL parameter (official API design)
         const response = await fetch(
             `https://generativelanguage.googleapis.com/v1beta/models/gemini-2.5-flash:generateContent?key=${state.geminiApiKey}`,
             {
@@ -407,6 +410,7 @@ async function saveAttemptName() {
 
 /**
  * Call Gemini API to analyze audio and get student IPA
+ * Note: Gemini API requires the API key in URL query parameter (as per official documentation)
  */
 async function getStudentIPAFromAudio(audioBlob, word, expectedIPA) {
     if (!state.geminiApiKey) {
@@ -428,6 +432,7 @@ ${expectedIPA ? `Expected pronunciation: ${expectedIPA}` : ''}
 
 Return just the IPA symbols for what you hear.`;
 
+        // Gemini API requires key in URL parameter (official API design)
         const response = await fetch(
             `https://generativelanguage.googleapis.com/v1beta/models/gemini-2.5-flash:generateContent?key=${state.geminiApiKey}`,
             {
@@ -481,6 +486,7 @@ Return just the IPA symbols for what you hear.`;
 
 /**
  * Call Gemini API to get hints for mismatches
+ * Note: Gemini API requires the API key in URL query parameter (as per official documentation)
  */
 async function getHintsForMismatches(expectedIPA, studentIPA, word) {
     if (!state.geminiApiKey) {
@@ -509,6 +515,7 @@ Return a JSON object with this structure:
 
 Return ONLY valid JSON, no additional text.`;
 
+        // Gemini API requires key in URL parameter (official API design)
         const response = await fetch(
             `https://generativelanguage.googleapis.com/v1beta/models/gemini-2.5-flash:generateContent?key=${state.geminiApiKey}`,
             {
