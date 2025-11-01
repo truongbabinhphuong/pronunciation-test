@@ -70,6 +70,15 @@ function generateId() {
     return Date.now().toString(36) + Math.random().toString(36).substring(2);
 }
 
+/**
+ * Escape HTML to prevent XSS attacks
+ */
+function escapeHtml(text) {
+    const div = document.createElement('div');
+    div.textContent = text;
+    return div.innerHTML;
+}
+
 // ============================================================================
 // SETTINGS MANAGEMENT
 // ============================================================================
@@ -422,6 +431,11 @@ function renderAttemptCard(attempt) {
     const scoreClass = attempt.analysis && attempt.analysis.scorePercent >= 80 ? 'score-high' :
                        attempt.analysis && attempt.analysis.scorePercent >= 60 ? 'score-medium' : 'score-low';
     
+    // Escape all user inputs to prevent XSS
+    const escapedName = escapeHtml(attempt.name);
+    const escapedId = escapeHtml(attempt.id);
+    const escapedWord = escapeHtml(attempt.word);
+    
     return `
         <div class="attempt-card">
             <div class="flex justify-between items-start mb-3">
@@ -429,30 +443,30 @@ function renderAttemptCard(attempt) {
                     <h3 class="font-semibold text-lg">
                         <input 
                             type="text" 
-                            value="${attempt.name}" 
-                            onchange="updateAttemptName('${attempt.id}', this.value)"
+                            value="${escapedName}" 
+                            onchange="updateAttemptName('${escapedId}', this.value)"
                             class="border-b border-transparent hover:border-gray-300 focus:border-blue-500 outline-none px-1">
                     </h3>
-                    <p class="text-sm text-gray-600">Word: <span class="font-medium">${attempt.word}</span></p>
+                    <p class="text-sm text-gray-600">Word: <span class="font-medium">${escapedWord}</span></p>
                     <p class="text-xs text-gray-500">${formatTimestamp(attempt.timestamp)}</p>
                 </div>
                 <div class="flex gap-2">
                     ${attempt.status === 'complete' ? `
                         <button 
-                            onclick="toggleReveal('${attempt.id}')"
+                            onclick="toggleReveal('${escapedId}')"
                             class="bg-yellow-500 hover:bg-yellow-600 text-white px-3 py-1 rounded text-sm focus:outline-none focus:ring-2 focus:ring-yellow-400">
                             ${attempt.revealed ? '🙈 Hide' : '👁️ Reveal'}
                         </button>
                     ` : ''}
                     <button 
-                        onclick="deleteAttempt('${attempt.id}')"
+                        onclick="deleteAttempt('${escapedId}')"
                         class="bg-red-500 hover:bg-red-600 text-white px-3 py-1 rounded text-sm focus:outline-none focus:ring-2 focus:ring-red-400">
                         🗑️
                     </button>
                 </div>
             </div>
             
-            <audio id="audio-${attempt.id}" controls class="mb-3"></audio>
+            <audio id="audio-${escapedId}" controls class="mb-3"></audio>
             
             ${renderAttemptStatus(attempt, scoreClass)}
         </div>
@@ -476,7 +490,7 @@ function renderAttemptStatus(attempt, scoreClass) {
         return `
             <div class="bg-red-50 border border-red-200 rounded p-3">
                 <p class="text-red-600 font-medium">Error</p>
-                <p class="text-sm text-red-500">${attempt.error}</p>
+                <p class="text-sm text-red-500">${escapeHtml(attempt.error || 'Unknown error')}</p>
             </div>
         `;
     }
@@ -502,6 +516,10 @@ function renderAttemptStatus(attempt, scoreClass) {
 function renderAnalysis(attempt, scoreClass) {
     const analysis = attempt.analysis;
     
+    // Escape all user-controllable data
+    const escapedId = escapeHtml(attempt.id);
+    const escapedTeacherNotes = escapeHtml(attempt.teacherNotes || '');
+    
     return `
         <div class="bg-blue-50 border border-blue-200 rounded p-4">
             <div class="text-center mb-4">
@@ -526,9 +544,9 @@ function renderAnalysis(attempt, scoreClass) {
                     ${analysis.mismatches.map(m => `
                         <div class="mismatch-hint">
                             <span class="font-medium">Position ${m.index + 1}:</span> 
-                            Expected "<span class="text-red-600 font-semibold">${m.expected}</span>" 
-                            but got "<span class="text-orange-600 font-semibold">${m.actual || 'missing'}</span>"
-                            ${m.hint ? `<br><span class="text-gray-700">💡 ${m.hint}</span>` : ''}
+                            Expected "<span class="text-red-600 font-semibold">${escapeHtml(m.expected || '')}</span>" 
+                            but got "<span class="text-orange-600 font-semibold">${escapeHtml(m.actual || 'missing')}</span>"
+                            ${m.hint ? `<br><span class="text-gray-700">💡 ${escapeHtml(m.hint)}</span>` : ''}
                         </div>
                     `).join('')}
                 </div>
@@ -537,17 +555,17 @@ function renderAnalysis(attempt, scoreClass) {
             ${analysis.aiComments ? `
                 <div class="bg-yellow-50 border border-yellow-200 rounded p-3 mb-3">
                     <p class="text-sm font-medium text-gray-700 mb-1">AI Feedback:</p>
-                    <p class="text-sm text-gray-700">${analysis.aiComments}</p>
+                    <p class="text-sm text-gray-700">${escapeHtml(analysis.aiComments)}</p>
                 </div>
             ` : ''}
             
             <div class="mt-3">
                 <label class="block text-sm font-medium text-gray-700 mb-1">Teacher Override / Notes:</label>
                 <textarea 
-                    onchange="updateAttemptNotes('${attempt.id}', this.value)"
+                    onchange="updateAttemptNotes('${escapedId}', this.value)"
                     class="w-full px-3 py-2 border border-gray-300 rounded text-sm focus:ring-2 focus:ring-blue-500"
                     rows="2"
-                    placeholder="Add teacher notes or override score...">${attempt.teacherNotes || ''}</textarea>
+                    placeholder="Add teacher notes or override score...">${escapedTeacherNotes}</textarea>
             </div>
         </div>
     `;
