@@ -104,11 +104,11 @@ Now you can start recording and analyzing pronunciation!
 For production use, deploy your backend server to a cloud platform:
 
 **Deployment Options:**
-- **Heroku**: `heroku create && git push heroku main`
-- **Railway**: Connect your repo and deploy from dashboard
-- **Render**: Connect your repo and deploy from dashboard  
-- **Google Cloud Run**: `gcloud run deploy`
-- **Your own VPS**: Run with PM2 or systemd
+- **Heroku**: Deploy server directory using git subtree: `git subtree push --prefix server heroku main`
+- **Railway**: Connect your repo, set root directory to `server/`, deploy from dashboard
+- **Render**: Connect your repo, set root directory to `server/`, deploy from dashboard  
+- **Google Cloud Run**: Deploy from `server/` directory: `gcloud run deploy --source=./server`
+- **Your own VPS**: Run with PM2 or systemd from the `server/` directory
 
 After deploying, update the server URL in the webapp settings to your deployed backend URL (e.g., `https://your-app.herokuapp.com`).
 
@@ -371,13 +371,16 @@ Deploy to a cloud platform of your choice:
 
 - **Heroku**: 
   ```bash
-  cd server
+  # From repository root
   heroku create your-app-name
   heroku config:set GEMINI_API_KEY=your-key
   heroku config:set GEMINI_MODEL=gemini-2.5-flash
   heroku config:set CORS_ORIGIN=https://truongbabinhphuong.github.io
-  git push heroku main
+  # Deploy only the server subdirectory
+  git subtree push --prefix server heroku main
   ```
+  
+  **Note**: This uses `git subtree` to deploy only the `server/` directory to Heroku.
 
 - **Railway** / **Render**: 
   1. Connect your GitHub repository
