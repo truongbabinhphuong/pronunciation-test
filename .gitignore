@@ -6,6 +6,9 @@ package-lock.json
 .env
 server/.env
 
+# Auto-generated config file
+config.js
+
 # Uploads and temporary files
 uploads/
 temp-mfa/
