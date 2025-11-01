@@ -7,12 +7,58 @@
 // STATE MANAGEMENT
 // ============================================================================
 
+/**
+ * Convert base64 data URL to Blob
+ */
+function base64ToBlob(base64Data) {
+    if (!base64Data) return null;
+    
+    // Split the data URL
+    const parts = base64Data.split(',');
+    if (parts.length !== 2) return null;
+    
+    // Get the MIME type
+    const mimeMatch = parts[0].match(/:(.*?);/);
+    const mimeType = mimeMatch ? mimeMatch[1] : 'audio/webm';
+    
+    // Decode base64
+    const byteString = atob(parts[1]);
+    
+    // Convert to array buffer
+    const arrayBuffer = new ArrayBuffer(byteString.length);
+    const uint8Array = new Uint8Array(arrayBuffer);
+    for (let i = 0; i < byteString.length; i++) {
+        uint8Array[i] = byteString.charCodeAt(i);
+    }
+    
+    return new Blob([arrayBuffer], { type: mimeType });
+}
+
+/**
+ * Load attempts from localStorage and convert base64 audio back to blobs
+ */
+function loadAttempts() {
+    const storedAttempts = JSON.parse(localStorage.getItem('attempts') || '[]');
+    return storedAttempts.map(attempt => {
+        if (attempt.audioBase64 && !attempt.audioBlob) {
+            // Convert base64 back to blob
+            const blob = base64ToBlob(attempt.audioBase64);
+            return {
+                ...attempt,
+                audioBlob: blob,
+                audioBase64: undefined // Remove base64 from memory
+            };
+        }
+        return attempt;
+    });
+}
+
 let state = {
     geminiApiKey: localStorage.getItem('geminiApiKey') || '',
     teacherName: localStorage.getItem('teacherName') || '',
     targetWord: '',
     expectedIPA: '',
-    attempts: JSON.parse(localStorage.getItem('attempts') || '[]'),
+    attempts: loadAttempts(),
     mediaRecorder: null,
     audioChunks: [],
     recordingStartTime: null,
@@ -42,9 +88,37 @@ function showToast(message, type = 'info') {
 
 /**
  * Save attempts to localStorage
+ * Convert audio blobs to base64 for storage
  */
-function saveAttempts() {
-    localStorage.setItem('attempts', JSON.stringify(state.attempts));
+async function saveAttempts() {
+    const attemptsToSave = await Promise.all(state.attempts.map(async (attempt) => {
+        if (attempt.audioBlob && attempt.audioBlob instanceof Blob) {
+            // Convert blob to base64 for storage
+            const base64Audio = await blobToBase64WithPrefix(attempt.audioBlob);
+            return {
+                ...attempt,
+                audioBlob: null,
+                audioBase64: base64Audio,
+                audioType: attempt.audioBlob.type
+            };
+        }
+        return attempt;
+    }));
+    localStorage.setItem('attempts', JSON.stringify(attemptsToSave));
+}
+
+/**
+ * Convert blob to base64 with data URL prefix
+ */
+function blobToBase64WithPrefix(blob) {
+    return new Promise((resolve, reject) => {
+        const reader = new FileReader();
+        reader.onloadend = () => {
+            resolve(reader.result);
+        };
+        reader.onerror = reject;
+        reader.readAsDataURL(blob);
+    });
 }
 
 /**
@@ -148,7 +222,7 @@ async function getIPAFromGemini(word) {
         
         // Gemini API requires key in URL parameter (official API design)
         const response = await fetch(
-            `https://generativelanguage.googleapis.com/v1beta/models/gemini-2.5-flash:generateContent?key=${state.geminiApiKey}`,
+            `https://generativelanguage.googleapis.com/v1beta/models/gemini-1.5-flash:generateContent?key=${state.geminiApiKey}`,
             {
                 method: 'POST',
                 headers: {
@@ -440,7 +514,7 @@ Return just the IPA symbols for what you hear.`;
 
         // Gemini API requires key in URL parameter (official API design)
         const response = await fetch(
-            `https://generativelanguage.googleapis.com/v1beta/models/gemini-2.5-flash:generateContent?key=${state.geminiApiKey}`,
+            `https://generativelanguage.googleapis.com/v1beta/models/gemini-1.5-flash:generateContent?key=${state.geminiApiKey}`,
             {
                 method: 'POST',
                 headers: {
@@ -523,7 +597,7 @@ Return ONLY valid JSON, no additional text.`;
 
         // Gemini API requires key in URL parameter (official API design)
         const response = await fetch(
-            `https://generativelanguage.googleapis.com/v1beta/models/gemini-2.5-flash:generateContent?key=${state.geminiApiKey}`,
+            `https://generativelanguage.googleapis.com/v1beta/models/gemini-1.5-flash:generateContent?key=${state.geminiApiKey}`,
             {
                 method: 'POST',
                 headers: {
