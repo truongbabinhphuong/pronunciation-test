@@ -115,6 +115,12 @@ function saveSettings() {
     state.geminiApiKey = geminiApiKey;
     state.teacherName = teacherName;
     
+    // Note: Storing API key in localStorage is intentional for this client-side application
+    // The key is only used for direct API calls to Google's Gemini service
+    // For enhanced security in production environments:
+    // 1. Use API key restrictions in Google Cloud Console (restrict by HTTP referrer)
+    // 2. Set usage quotas to prevent abuse
+    // 3. Consider implementing a server-side proxy for untrusted environments
     localStorage.setItem('geminiApiKey', geminiApiKey);
     localStorage.setItem('teacherName', teacherName);
     
