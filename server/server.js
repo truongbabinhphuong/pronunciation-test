@@ -21,7 +21,7 @@ const { runAligner, parseAlignerOutput } = require('./utils/aligner-wrapper');
 
 const PORT = process.env.PORT || 3000;
 const GEMINI_API_KEY = process.env.GEMINI_API_KEY;
-const GEMINI_MODEL = process.env.GEMINI_MODEL || 'gemini-2.0-flash-exp';
+const GEMINI_MODEL = process.env.GEMINI_MODEL || 'gemini-2.5-flash';
 const GEMINI_API_URL = process.env.GEMINI_API_URL || 'https://generativelanguage.googleapis.com/v1beta/models';
 const USE_FORCED_ALIGNER = process.env.USE_FORCED_ALIGNER === 'true';
 const ALIGNER_TYPE = process.env.ALIGNER_TYPE || 'mfa';

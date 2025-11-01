@@ -8,7 +8,7 @@
 // ============================================================================
 
 let state = {
-    serverURL: localStorage.getItem('serverURL') || 'http://localhost:3000',
+    serverURL: localStorage.getItem('serverURL') || (window.APP_CONFIG && window.APP_CONFIG.API_URL) || 'http://localhost:3000',
     teacherName: localStorage.getItem('teacherName') || '',
     targetWord: '',
     expectedIPA: '',
@@ -748,6 +748,13 @@ document.addEventListener('DOMContentLoaded', () => {
     
     // Initial render
     renderAttempts();
+    
+    // Initialize default server URL from config if not already set in localStorage
+    if (!localStorage.getItem('serverURL') && window.APP_CONFIG && window.APP_CONFIG.API_URL) {
+        state.serverURL = window.APP_CONFIG.API_URL;
+        localStorage.setItem('serverURL', window.APP_CONFIG.API_URL);
+        console.log('Initialized server URL from config:', state.serverURL);
+    }
     
     // Show settings if server URL not set
     if (!state.serverURL || state.serverURL === 'http://localhost:3000') {

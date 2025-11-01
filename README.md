@@ -50,17 +50,20 @@ npm install
 
 ### 3. Configure Environment Variables
 
-Copy the example environment file and add your Gemini API key:
+#### Server Configuration
+
+Copy the server's example environment file and add your Gemini API key:
 
 ```bash
+cd server
 cp .env.example .env
 ```
 
-Edit `.env` and set your `GEMINI_API_KEY`:
+Edit `server/.env` and set your `GEMINI_API_KEY`:
 
 ```env
 GEMINI_API_KEY=your-actual-api-key-here
-GEMINI_MODEL=gemini-2.0-flash-exp
+GEMINI_MODEL=gemini-2.5-flash
 PORT=3000
 USE_FORCED_ALIGNER=false
 CORS_ORIGIN=*
@@ -68,15 +71,54 @@ CORS_ORIGIN=*
 
 **Important**: Get your Gemini API key from [Google AI Studio](https://makersuite.google.com/app/apikey)
 
+#### Webapp Configuration (Optional)
+
+For the frontend webapp, you can also configure the API URL via environment variables:
+
+```bash
+cd ..  # Back to root directory
+cp .env.example .env
+```
+
+Edit `.env` and set your API URL:
+
+```env
+API_URL=http://localhost:3000
+```
+
+Then run the build script to generate the config:
+
+```bash
+node build.js
+```
+
+This creates a `config.js` file that the webapp will use for default configuration.
+
+**Security Note**: API keys should NEVER be included in the webapp configuration. All API keys must remain on the server side only. The webapp `.env` file only configures the server URL.
+
+**Note**: If you don't create a webapp `.env` file, the default configuration will be used.
+
 ### 4. Start the Server
 
 ```bash
+cd server
 npm start
 ```
 
 The server will start on `http://localhost:3000`
 
-### 5. Open the Frontend
+### 5. Build the Webapp Configuration (Optional)
+
+If you configured the webapp `.env` file:
+
+```bash
+cd ..  # Back to root directory
+node build.js
+```
+
+This generates `config.js` from your `.env` configuration.
+
+### 6. Open the Frontend
 
 Open `index.html` in your browser, or use a local web server:
 
@@ -93,19 +135,23 @@ start index.html # Windows
 xdg-open index.html # Linux
 ```
 
-### 6. Configure the Frontend
+### 7. Configure the Frontend (if needed)
+
+If you ran `node build.js`, the webapp will automatically use the configured API URL from your `.env` file.
+
+Otherwise, you can manually configure it:
 
 1. Click the **Settings** button (⚙️) in the top-right
 2. Enter the server URL: `http://localhost:3000`
 3. Optionally enter your teacher name
 4. Click **Save Settings**
 
-### 7. Test the Microphone
+### 8. Test the Microphone
 
 1. Click **Test Microphone** to grant browser permissions
 2. Allow microphone access when prompted
 
-### 8. Start Recording Attempts
+### 9. Start Recording Attempts
 
 1. Enter a target word (e.g., "through")
 2. Optionally enter expected IPA (or click "Lookup IPA")
@@ -125,13 +171,16 @@ pronunciation-test/
 ├── index.html          # Main frontend page
 ├── app.js             # Frontend JavaScript
 ├── styles.css         # Custom styles
+├── build.js           # Build script to generate config.js from .env
+├── .env.example       # Webapp environment template
+├── config.js          # Auto-generated config (from .env via build.js)
 ├── README.md          # This file
 ├── .gitignore         # Git ignore rules
 ├── copilot.txt        # Original requirements
 └── server/            # Backend server
     ├── package.json
     ├── server.js      # Main Express server
-    ├── .env.example   # Environment template
+    ├── .env.example   # Server environment template
     └── utils/
         ├── scoring.js         # Phoneme comparison & scoring
         └── aligner-wrapper.js # Forced aligner integration
@@ -199,11 +248,11 @@ The server uses Google's Gemini API for:
 - Generating helpful pronunciation hints
 
 **Supported Models**:
-- `gemini-2.0-flash-exp` (default, fastest)
+- `gemini-2.5-flash` (default, recommended)
 - `gemini-1.5-flash` (fast, reliable)
 - `gemini-1.5-pro` (most accurate)
 
-Change the model in `.env`:
+Change the model in `server/.env`:
 ```env
 GEMINI_MODEL=gemini-1.5-pro
 ```
