@@ -42,11 +42,22 @@ if (!GEMINI_API_KEY) {
 const app = express();
 
 // Middleware
+// CORS Configuration
+// NOTE: For production, set CORS_ORIGIN to your specific frontend domain in .env
+// Example: CORS_ORIGIN=https://yourusername.github.io
+// WARNING: Using '*' allows any origin and should only be used for development/testing
 app.use(cors({
     origin: CORS_ORIGIN,
     methods: ['GET', 'POST'],
     credentials: true
 }));
+
+// Rate Limiting Recommendation:
+// For production, consider adding rate limiting middleware to prevent abuse:
+// const rateLimit = require('express-rate-limit');
+// const limiter = rateLimit({ windowMs: 15 * 60 * 1000, max: 100 });
+// app.use('/api/', limiter);
+
 app.use(express.json());
 
 // File upload configuration
@@ -283,6 +294,12 @@ Return ONLY valid JSON, no additional text.`;
 function splitIntoPhonemes(ipa) {
     if (!ipa) return [];
     
+    // Validate IPA string length to prevent DoS
+    if (typeof ipa !== 'string' || ipa.length > 500) {
+        console.warn('IPA string is invalid or too long:', ipa?.length);
+        return [];
+    }
+    
     // Common IPA multi-character sequences
     const multiChar = ['t͡ʃ', 'd͡ʒ', 'aɪ', 'aʊ', 'eɪ', 'oʊ', 'ɔɪ', 'ɪə', 'eə', 'ʊə'];
     
@@ -502,14 +519,36 @@ app.post('/api/analyze', upload.single('audio'), async (req, res) => {
         
         const { word, attemptName, expectedIPA: expectedIPAInput } = req.body;
         
-        if (!word) {
+        // Validate inputs
+        if (!word || typeof word !== 'string') {
             return res.status(400).json({
                 success: false,
-                error: 'Word is required'
+                error: 'Word is required and must be a string'
+            });
+        }
+        
+        // Prevent excessively long inputs
+        if (word.length > 100 || (expectedIPAInput && expectedIPAInput.length > 200)) {
+            return res.status(400).json({
+                success: false,
+                error: 'Input too long'
             });
         }
         
         audioPath = req.file.path;
+        
+        // Validate audio path to prevent path traversal
+        const normalizedPath = path.normalize(audioPath);
+        const uploadsPath = path.resolve(uploadsDir);
+        const resolvedPath = path.resolve(normalizedPath);
+        
+        if (!resolvedPath.startsWith(uploadsPath)) {
+            return res.status(400).json({
+                success: false,
+                error: 'Invalid file path'
+            });
+        }
+        
         log('Processing audio file:', audioPath);
         log('Word:', word, 'Expected IPA:', expectedIPAInput);
         
