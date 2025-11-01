@@ -104,7 +104,10 @@ Now you can start recording and analyzing pronunciation!
 For production use, deploy your backend server to a cloud platform:
 
 **Deployment Options:**
-- **Heroku**: Deploy server directory using git subtree: `git subtree push --prefix server heroku main`
+- **Heroku**: 
+  1. Create app and set config: `heroku create your-app-name`
+  2. Set environment variables (see detailed instructions below)
+  3. Deploy server directory: `git subtree push --prefix server heroku main`
 - **Railway**: Connect your repo, set root directory to `server/`, deploy from dashboard
 - **Render**: Connect your repo, set root directory to `server/`, deploy from dashboard  
 - **Google Cloud Run**: Deploy from `server/` directory: `gcloud run deploy --source=./server`
@@ -210,7 +213,9 @@ The settings are saved in your browser's localStorage and won't need to be enter
 4. Enter student name (e.g., "Alice - Round 1")
 5. Click **Save & Upload**
 
-The system will analyze the pronunciation using Gemini AI (gemini-2.5-flash model) and show a processing indicator. Once complete, click **Reveal** to see the detailed results including:
+The system will analyze the pronunciation using Gemini AI (gemini-2.5-flash model) and show a processing indicator. 
+
+Once complete, click **Reveal** to see the detailed results including:
 - Pronunciation score percentage
 - IPA comparison (expected vs. actual)
 - Color-coded phoneme matching
