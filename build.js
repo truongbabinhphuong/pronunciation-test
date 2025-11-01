@@ -54,14 +54,11 @@ const configJs = `/**
  */
 
 window.APP_CONFIG = {
-    API_URL: '${config.API_URL || 'http://localhost:3000'}',
-    API_KEY: '${config.API_KEY || ''}'
+    API_URL: '${config.API_URL || 'http://localhost:3000'}'
 };
 
-console.log('Configuration loaded:', {
-    API_URL: window.APP_CONFIG.API_URL,
-    API_KEY: window.APP_CONFIG.API_KEY ? '***configured***' : '(not set)'
-});
+// Note: API keys should be kept on the server for security
+// This config only includes the API URL for the webapp
 `;
 
 // Write config.js
@@ -70,4 +67,3 @@ fs.writeFileSync(configPath, configJs);
 
 console.log('✓ Generated config.js successfully');
 console.log('  API_URL:', config.API_URL || 'http://localhost:3000');
-console.log('  API_KEY:', config.API_KEY ? '***configured***' : '(not set)');

@@ -84,7 +84,6 @@ Edit `.env` and set your API URL:
 
 ```env
 API_URL=http://localhost:3000
-API_KEY=
 ```
 
 Then run the build script to generate the config:
@@ -94,6 +93,8 @@ node build.js
 ```
 
 This creates a `config.js` file that the webapp will use for default configuration.
+
+**Security Note**: API keys should NEVER be included in the webapp configuration. All API keys must remain on the server side only. The webapp `.env` file only configures the server URL.
 
 **Note**: If you don't create a webapp `.env` file, the default configuration will be used.
 
