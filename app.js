@@ -8,7 +8,7 @@
 // ============================================================================
 
 let state = {
-    serverURL: localStorage.getItem('serverURL') || (window.APP_CONFIG && window.APP_CONFIG.API_URL) || 'http://localhost:3000',
+    geminiApiKey: localStorage.getItem('geminiApiKey') || '',
     teacherName: localStorage.getItem('teacherName') || '',
     targetWord: '',
     expectedIPA: '',
@@ -88,7 +88,7 @@ function escapeHtml(text) {
  */
 function openSettings() {
     const modal = document.getElementById('settingsModal');
-    document.getElementById('serverURL').value = state.serverURL;
+    document.getElementById('geminiApiKey').value = state.geminiApiKey;
     document.getElementById('teacherName').value = state.teacherName;
     modal.classList.remove('hidden');
 }
@@ -104,18 +104,24 @@ function closeSettings() {
  * Save settings
  */
 function saveSettings() {
-    const serverURL = document.getElementById('serverURL').value.trim();
+    const geminiApiKey = document.getElementById('geminiApiKey').value.trim();
     const teacherName = document.getElementById('teacherName').value.trim();
     
-    if (!serverURL) {
-        showToast('Server URL is required', 'error');
+    if (!geminiApiKey) {
+        showToast('Gemini API key is required', 'error');
         return;
     }
     
-    state.serverURL = serverURL;
+    state.geminiApiKey = geminiApiKey;
     state.teacherName = teacherName;
     
-    localStorage.setItem('serverURL', serverURL);
+    // Note: Storing API key in localStorage is intentional for this client-side application
+    // The key is only used for direct API calls to Google's Gemini service
+    // For enhanced security in production environments:
+    // 1. Use API key restrictions in Google Cloud Console (restrict by HTTP referrer)
+    // 2. Set usage quotas to prevent abuse
+    // 3. Consider implementing a server-side proxy for untrusted environments
+    localStorage.setItem('geminiApiKey', geminiApiKey);
     localStorage.setItem('teacherName', teacherName);
     
     showToast('Settings saved successfully', 'success');
@@ -127,7 +133,67 @@ function saveSettings() {
 // ============================================================================
 
 /**
- * Lookup IPA from server using Gemini
+ * Call Gemini API to get IPA from word
+ * Note: Gemini API requires the API key in URL query parameter (as per official documentation)
+ * For enhanced security in production, consider using a server-side proxy
+ */
+async function getIPAFromGemini(word) {
+    if (!state.geminiApiKey) {
+        showToast('Please configure your Gemini API key in Settings', 'error');
+        return null;
+    }
+    
+    try {
+        const prompt = `Return ONLY the International Phonetic Alphabet (IPA) transcription for the English word "${word}". Return just the IPA symbols, nothing else. Use standard IPA notation.`;
+        
+        // Gemini API requires key in URL parameter (official API design)
+        const response = await fetch(
+            `https://generativelanguage.googleapis.com/v1beta/models/gemini-2.5-flash:generateContent?key=${state.geminiApiKey}`,
+            {
+                method: 'POST',
+                headers: {
+                    'Content-Type': 'application/json'
+                },
+                body: JSON.stringify({
+                    contents: [{
+                        parts: [{
+                            text: prompt
+                        }]
+                    }],
+                    generationConfig: {
+                        temperature: 0.2,
+                        maxOutputTokens: 100
+                    }
+                })
+            }
+        );
+        
+        if (!response.ok) {
+            const errorData = await response.json();
+            console.error('Gemini API error:', errorData);
+            throw new Error('Failed to call Gemini API');
+        }
+        
+        const data = await response.json();
+        
+        if (data.candidates && data.candidates[0]?.content?.parts?.[0]?.text) {
+            let ipa = data.candidates[0].content.parts[0].text.trim();
+            // Remove common formatting
+            ipa = ipa.replace(/^IPA:\s*/i, '');
+            ipa = ipa.replace(/^\//, '').replace(/\/$/, '');
+            ipa = ipa.replace(/^\[/, '').replace(/\]$/, '');
+            return ipa;
+        }
+        
+        return null;
+    } catch (error) {
+        console.error('Error calling Gemini API for IPA:', error);
+        return null;
+    }
+}
+
+/**
+ * Lookup IPA from Gemini
  */
 async function lookupIPA() {
     const word = document.getElementById('targetWord').value.trim();
@@ -137,30 +203,28 @@ async function lookupIPA() {
         return;
     }
     
+    if (!state.geminiApiKey) {
+        showToast('Please configure your Gemini API key in Settings first', 'error');
+        openSettings();
+        return;
+    }
+    
     const btn = document.getElementById('lookupIPABtn');
     btn.disabled = true;
     btn.innerHTML = '<span class="spinner"></span> Looking up...';
     
     try {
-        const response = await fetch(`${state.serverURL}/api/lookup-ipa`, {
-            method: 'POST',
-            headers: {
-                'Content-Type': 'application/json'
-            },
-            body: JSON.stringify({ word })
-        });
+        const ipa = await getIPAFromGemini(word);
         
-        const data = await response.json();
-        
-        if (data.success && data.ipa) {
-            document.getElementById('expectedIPA').value = data.ipa;
+        if (ipa) {
+            document.getElementById('expectedIPA').value = ipa;
             showToast('IPA found successfully', 'success');
         } else {
             showToast('Could not find IPA. Please enter manually.', 'warning');
         }
     } catch (error) {
         console.error('Error looking up IPA:', error);
-        showToast('Error connecting to server', 'error');
+        showToast('Error calling Gemini API', 'error');
     } finally {
         btn.disabled = false;
         btn.innerHTML = '🔍 Lookup IPA';
@@ -351,33 +415,406 @@ async function saveAttemptName() {
 // ============================================================================
 
 /**
+ * Call Gemini API to analyze audio and get student IPA
+ * Note: Gemini API requires the API key in URL query parameter (as per official documentation)
+ */
+async function getStudentIPAFromAudio(audioBlob, word, expectedIPA) {
+    if (!state.geminiApiKey) {
+        throw new Error('Gemini API key not configured');
+    }
+    
+    try {
+        // Convert blob to base64
+        const audioBase64 = await blobToBase64(audioBlob);
+        
+        // Determine MIME type
+        let mimeType = audioBlob.type || 'audio/webm';
+        
+        const prompt = `You are a precise phonetics assistant. Listen to this audio clip of a student attempting to pronounce the word "${word}".
+
+Task: Transcribe the student's pronunciation into IPA (International Phonetic Alphabet) notation. Return ONLY the IPA transcription, nothing else. Be as accurate as possible with the phonetic symbols.
+
+${expectedIPA ? `Expected pronunciation: ${expectedIPA}` : ''}
+
+Return just the IPA symbols for what you hear.`;
+
+        // Gemini API requires key in URL parameter (official API design)
+        const response = await fetch(
+            `https://generativelanguage.googleapis.com/v1beta/models/gemini-2.5-flash:generateContent?key=${state.geminiApiKey}`,
+            {
+                method: 'POST',
+                headers: {
+                    'Content-Type': 'application/json'
+                },
+                body: JSON.stringify({
+                    contents: [{
+                        parts: [
+                            { text: prompt },
+                            {
+                                inline_data: {
+                                    mime_type: mimeType,
+                                    data: audioBase64
+                                }
+                            }
+                        ]
+                    }],
+                    generationConfig: {
+                        temperature: 0.2,
+                        maxOutputTokens: 200
+                    }
+                })
+            }
+        );
+        
+        if (!response.ok) {
+            const errorData = await response.json();
+            console.error('Gemini API error:', errorData);
+            throw new Error('Failed to analyze audio');
+        }
+        
+        const data = await response.json();
+        
+        if (data.candidates && data.candidates[0]?.content?.parts?.[0]?.text) {
+            let ipa = data.candidates[0].content.parts[0].text.trim();
+            // Clean up formatting
+            ipa = ipa.replace(/^IPA:\s*/i, '');
+            ipa = ipa.replace(/^\//, '').replace(/\/$/, '');
+            ipa = ipa.replace(/^\[/, '').replace(/\]$/, '');
+            return ipa;
+        }
+        
+        return null;
+    } catch (error) {
+        console.error('Error calling Gemini API for audio analysis:', error);
+        throw error;
+    }
+}
+
+/**
+ * Call Gemini API to get hints for mismatches
+ * Note: Gemini API requires the API key in URL query parameter (as per official documentation)
+ */
+async function getHintsForMismatches(expectedIPA, studentIPA, word) {
+    if (!state.geminiApiKey) {
+        return null;
+    }
+    
+    try {
+        const prompt = `Compare the expected IPA pronunciation with the student's actual pronunciation:
+
+Word: "${word}"
+Expected IPA: ${expectedIPA}
+Student IPA: ${studentIPA}
+
+Analyze the differences between expected and student IPA. For each mismatch or error:
+1. Identify which phoneme was expected
+2. Identify what the student said instead
+3. Provide a brief, helpful hint (max 80 characters) on how to correct it
+
+Return a JSON object with this structure:
+{
+  "aiComments": "Brief summary of main pronunciation issues (1-2 sentences)",
+  "mismatches": [
+    {"expected": "θ", "actual": "t", "hint": "Place tongue between teeth for /θ/ sound"}
+  ]
+}
+
+Return ONLY valid JSON, no additional text.`;
+
+        // Gemini API requires key in URL parameter (official API design)
+        const response = await fetch(
+            `https://generativelanguage.googleapis.com/v1beta/models/gemini-2.5-flash:generateContent?key=${state.geminiApiKey}`,
+            {
+                method: 'POST',
+                headers: {
+                    'Content-Type': 'application/json'
+                },
+                body: JSON.stringify({
+                    contents: [{
+                        parts: [{
+                            text: prompt
+                        }]
+                    }],
+                    generationConfig: {
+                        temperature: 0.3,
+                        maxOutputTokens: 500
+                    }
+                })
+            }
+        );
+        
+        if (!response.ok) {
+            console.error('Gemini API error getting hints');
+            return null;
+        }
+        
+        const data = await response.json();
+        
+        if (data.candidates && data.candidates[0]?.content?.parts?.[0]?.text) {
+            let text = data.candidates[0].content.parts[0].text.trim();
+            // Try to extract JSON from markdown code blocks
+            text = text.replace(/```json\n?/g, '').replace(/```\n?/g, '');
+            
+            try {
+                return JSON.parse(text);
+            } catch (parseError) {
+                console.error('Failed to parse Gemini JSON response:', parseError);
+                return { aiComments: text, mismatches: [] };
+            }
+        }
+        
+        return null;
+    } catch (error) {
+        console.error('Error calling Gemini API for hints:', error);
+        return null;
+    }
+}
+
+/**
+ * Convert blob to base64
+ */
+function blobToBase64(blob) {
+    return new Promise((resolve, reject) => {
+        const reader = new FileReader();
+        reader.onloadend = () => {
+            // Remove the data URL prefix (e.g., "data:audio/webm;base64,")
+            const base64 = reader.result.split(',')[1];
+            resolve(base64);
+        };
+        reader.onerror = reject;
+        reader.readAsDataURL(blob);
+    });
+}
+
+/**
+ * Split IPA string into phonemes
+ */
+function splitIntoPhonemes(ipa) {
+    if (!ipa) return [];
+    
+    // Common IPA multi-character sequences
+    const multiChar = ['t͡ʃ', 'd͡ʒ', 'aɪ', 'aʊ', 'eɪ', 'oʊ', 'ɔɪ', 'ɪə', 'eə', 'ʊə'];
+    
+    let result = [];
+    let i = 0;
+    
+    while (i < ipa.length) {
+        let found = false;
+        
+        // Check for multi-character phonemes
+        for (const mc of multiChar) {
+            if (ipa.substring(i, i + mc.length) === mc) {
+                result.push(mc);
+                i += mc.length;
+                found = true;
+                break;
+            }
+        }
+        
+        if (!found) {
+            // Single character phoneme
+            const char = ipa[i];
+            // Skip modifiers that attach to previous phoneme
+            if (char !== 'ː' && char !== 'ˑ' && char !== '̆' && char !== 'ˈ' && char !== 'ˌ') {
+                result.push(char);
+            } else if (result.length > 0) {
+                // Attach modifier to previous phoneme
+                result[result.length - 1] += char;
+            }
+            i++;
+        }
+    }
+    
+    return result;
+}
+
+/**
+ * Align two phoneme sequences using dynamic programming
+ */
+function alignPhonemes(expected, actual) {
+    const m = expected.length;
+    const n = actual.length;
+    
+    // Create DP table
+    const dp = Array(m + 1).fill(null).map(() => Array(n + 1).fill(0));
+    
+    // Initialize first row and column
+    for (let i = 0; i <= m; i++) dp[i][0] = i;
+    for (let j = 0; j <= n; j++) dp[0][j] = j;
+    
+    // Fill DP table
+    for (let i = 1; i <= m; i++) {
+        for (let j = 1; j <= n; j++) {
+            if (expected[i - 1] === actual[j - 1]) {
+                dp[i][j] = dp[i - 1][j - 1];
+            } else {
+                dp[i][j] = 1 + Math.min(
+                    dp[i - 1][j],     // deletion
+                    dp[i][j - 1],     // insertion
+                    dp[i - 1][j - 1]  // substitution
+                );
+            }
+        }
+    }
+    
+    // Backtrack to get alignment
+    const alignment = [];
+    let i = m, j = n;
+    
+    while (i > 0 || j > 0) {
+        if (i > 0 && j > 0 && expected[i - 1] === actual[j - 1]) {
+            alignment.unshift({ expected: expected[i - 1], actual: actual[j - 1] });
+            i--; j--;
+        } else if (i > 0 && (j === 0 || dp[i - 1][j] <= dp[i][j - 1])) {
+            alignment.unshift({ expected: expected[i - 1], actual: null });
+            i--;
+        } else {
+            alignment.unshift({ expected: null, actual: actual[j - 1] });
+            j--;
+        }
+    }
+    
+    return alignment;
+}
+
+/**
+ * Get simple hint for phoneme mismatch
+ */
+function getSimpleHint(expected, actual) {
+    if (!expected) return 'Extra sound - try to remove this';
+    if (!actual) return `Missing sound - add ${expected}`;
+    
+    // Simple hint dictionary
+    const hints = {
+        'θ': 'Place tongue between teeth for /θ/ (voiceless)',
+        'ð': 'Place tongue between teeth for /ð/ (voiced)',
+        'ŋ': 'Use back of tongue against soft palate for /ŋ/',
+        'ʃ': 'Round lips and push air between tongue and roof of mouth for /ʃ/',
+        'ʒ': 'Same as /ʃ/ but voiced for /ʒ/',
+        'r': 'Curl tongue tip back slightly for /r/',
+        'l': 'Touch tongue to roof of mouth for /l/',
+        'w': 'Round lips and use voice for /w/',
+        'j': 'Raise middle of tongue toward palate for /j/'
+    };
+    
+    if (hints[expected]) {
+        return hints[expected];
+    }
+    
+    return `Try to pronounce /${expected}/ instead of /${actual || 'nothing'}/`;
+}
+
+/**
+ * Compare phonemes and find mismatches
+ */
+function comparePhonemes(expectedIPA, studentIPA) {
+    const expectedPhonemes = splitIntoPhonemes(expectedIPA);
+    const studentPhonemes = splitIntoPhonemes(studentIPA);
+    
+    const expectedCount = expectedPhonemes.length;
+    let matchCount = 0;
+    const mismatches = [];
+    
+    // Use alignment for comparison
+    const alignment = alignPhonemes(expectedPhonemes, studentPhonemes);
+    
+    alignment.forEach((pair, index) => {
+        if (pair.expected === pair.actual) {
+            matchCount++;
+        } else {
+            mismatches.push({
+                index: index,
+                expected: pair.expected || '',
+                actual: pair.actual || '',
+                hint: getSimpleHint(pair.expected, pair.actual)
+            });
+        }
+    });
+    
+    const scorePercent = expectedCount > 0 ? Math.round((matchCount / expectedCount) * 100) : 0;
+    
+    return {
+        scorePercent,
+        matchCount,
+        expectedCount,
+        mismatches
+    };
+}
+
+/**
  * Upload attempt to server for analysis
  */
 async function uploadAttempt(attempt) {
     try {
-        const formData = new FormData();
-        formData.append('audio', attempt.audioBlob, `${attempt.id}.webm`);
-        formData.append('word', attempt.word);
-        formData.append('attemptName', attempt.name);
-        formData.append('expectedIPA', attempt.expectedIPA || '');
+        if (!state.geminiApiKey) {
+            throw new Error('Gemini API key not configured. Please configure it in Settings.');
+        }
         
-        const response = await fetch(`${state.serverURL}/api/analyze`, {
-            method: 'POST',
-            body: formData
-        });
+        // Get expected IPA if not provided
+        let expectedIPA = attempt.expectedIPA;
+        if (!expectedIPA) {
+            expectedIPA = await getIPAFromGemini(attempt.word);
+        }
         
-        const data = await response.json();
+        if (!expectedIPA) {
+            throw new Error('Could not determine expected IPA. Please provide it manually.');
+        }
+        
+        // Get student IPA from audio
+        const studentIPA = await getStudentIPAFromAudio(attempt.audioBlob, attempt.word, expectedIPA);
+        
+        if (!studentIPA) {
+            throw new Error('Could not analyze audio. Please check your audio quality and try again.');
+        }
+        
+        // Calculate deterministic score
+        const scoreResult = comparePhonemes(expectedIPA, studentIPA);
+        
+        // Get AI hints and comments
+        let aiComments = 'Analysis complete.';
+        let enhancedMismatches = scoreResult.mismatches;
+        
+        try {
+            const hints = await getHintsForMismatches(expectedIPA, studentIPA, attempt.word);
+            if (hints) {
+                if (hints.aiComments) {
+                    aiComments = hints.aiComments;
+                }
+                
+                // Merge AI hints with deterministic mismatches
+                if (hints.mismatches && hints.mismatches.length > 0) {
+                    enhancedMismatches = scoreResult.mismatches.map((m, idx) => {
+                        const aiHint = hints.mismatches.find(h =>
+                            h.expected === m.expected && h.actual === m.actual
+                        );
+                        return {
+                            ...m,
+                            hint: aiHint?.hint || m.hint
+                        };
+                    });
+                }
+            }
+        } catch (hintError) {
+            console.error('Error getting hints:', hintError);
+            // Continue with basic hints
+        }
         
         // Find attempt and update with analysis
         const attemptIndex = state.attempts.findIndex(a => a.id === attempt.id);
         if (attemptIndex !== -1) {
-            if (data.success) {
-                state.attempts[attemptIndex].status = 'complete';
-                state.attempts[attemptIndex].analysis = data;
-            } else {
-                state.attempts[attemptIndex].status = 'error';
-                state.attempts[attemptIndex].error = data.error || 'Analysis failed';
-            }
+            state.attempts[attemptIndex].status = 'complete';
+            state.attempts[attemptIndex].analysis = {
+                success: true,
+                attemptName: attempt.name,
+                word: attempt.word,
+                expectedIPA,
+                studentIPA,
+                scorePercent: scoreResult.scorePercent,
+                matchCount: scoreResult.matchCount,
+                expectedCount: scoreResult.expectedCount,
+                mismatches: enhancedMismatches,
+                aiComments
+            };
             
             saveAttempts();
             renderAttempts();
@@ -389,7 +826,7 @@ async function uploadAttempt(attempt) {
         const attemptIndex = state.attempts.findIndex(a => a.id === attempt.id);
         if (attemptIndex !== -1) {
             state.attempts[attemptIndex].status = 'error';
-            state.attempts[attemptIndex].error = 'Failed to connect to server';
+            state.attempts[attemptIndex].error = error.message || 'Failed to analyze pronunciation';
             saveAttempts();
             renderAttempts();
         }
@@ -749,19 +1186,13 @@ document.addEventListener('DOMContentLoaded', () => {
     // Initial render
     renderAttempts();
     
-    // Initialize default server URL from config if not already set in localStorage
-    if (!localStorage.getItem('serverURL') && window.APP_CONFIG && window.APP_CONFIG.API_URL) {
-        state.serverURL = window.APP_CONFIG.API_URL;
-        localStorage.setItem('serverURL', window.APP_CONFIG.API_URL);
-        console.log('Initialized server URL from config:', state.serverURL);
-    }
-    
-    // Show settings if server URL not set
-    if (!state.serverURL || state.serverURL === 'http://localhost:3000') {
+    // Show settings if API key not configured
+    if (!state.geminiApiKey) {
         setTimeout(() => {
-            if (confirm('Would you like to configure the server URL now?')) {
+            showToast('Please configure your Gemini API key to get started', 'warning');
+            setTimeout(() => {
                 openSettings();
-            }
+            }, 1000);
         }, 500);
     }
 });

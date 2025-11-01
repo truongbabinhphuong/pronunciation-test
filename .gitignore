@@ -2,14 +2,6 @@
 node_modules/
 package-lock.json
 
-# Environment variables
-# Note: .env at root contains only non-sensitive configuration (API URLs)
-# and can be committed. server/.env contains API keys and must NOT be committed.
-server/.env
-
-# Auto-generated config file (now committed for GitHub Pages deployment)
-# config.js is generated from .env but can be committed with default values
-
 # Uploads and temporary files
 uploads/
 temp-mfa/
