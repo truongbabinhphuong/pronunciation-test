@@ -294,7 +294,7 @@ function splitIntoPhonemes(ipa) {
         
         // Check for multi-character phonemes
         for (const mc of multiChar) {
-            if (ipa.substr(i, mc.length) === mc) {
+            if (ipa.substring(i, i + mc.length) === mc) {
                 result.push(mc);
                 i += mc.length;
                 found = true;
