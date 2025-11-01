@@ -212,6 +212,18 @@ GEMINI_MODEL=gemini-1.5-pro
 
 ### Frontend Deployment (GitHub Pages)
 
+This repository is configured with GitHub Actions to automatically deploy to GitHub Pages.
+
+**Live Demo**: The webapp is available at: `https://truongbabinhphuong.github.io/pronunciation-test/`
+
+#### Automatic Deployment
+
+The webapp is automatically deployed to GitHub Pages whenever changes are pushed to the `main` branch. The GitHub Actions workflow (`.github/workflows/deploy-pages.yml`) handles the deployment.
+
+#### Manual Setup (if needed)
+
+If you need to set up GitHub Pages manually:
+
 1. **Push to GitHub**
    ```bash
    git add index.html app.js styles.css
@@ -221,8 +233,8 @@ GEMINI_MODEL=gemini-1.5-pro
 
 2. **Enable GitHub Pages**
    - Go to repository Settings → Pages
-   - Select "main" branch as source
-   - Click Save
+   - Under "Build and deployment", select "GitHub Actions" as the source
+   - The site will be automatically deployed
    - Your site will be available at `https://yourusername.github.io/pronunciation-test/`
 
 3. **Update frontend settings**
@@ -386,6 +398,71 @@ Server health check.
   "forcedAlignerEnabled": false
 }
 ```
+
+## 🧪 Testing & Screenshots
+
+The webapp has been tested with all functions verified. Below are screenshots demonstrating the key features:
+
+### 1. Settings Modal
+![Settings Modal](https://github.com/user-attachments/assets/e34d9115-6088-458e-af3a-b29e06ac763a)
+
+The settings modal allows you to configure:
+- Server API URL for backend communication
+- Teacher name for personalization
+
+### 2. Main Interface
+![Main Interface](https://github.com/user-attachments/assets/6cf03639-4979-4023-9368-63dec8e9f758)
+
+The main interface includes:
+- Target Word Configuration section
+- Recording Controls (Test Microphone, Start/Stop Recording)
+- Global Controls (Reveal/Hide All, Export JSON, Clear All)
+- Student Attempts list
+
+### 3. Target Word Set
+![Target Word Set](https://github.com/user-attachments/assets/e66dcfd5-8473-4f5b-ab61-c64627f7f5d6)
+
+Shows the word configuration in action:
+- Target word: "through"
+- Expected IPA: "θruː"
+- Success notification displayed
+
+### 4. All Functions Tested
+![All Functions Tested](https://github.com/user-attachments/assets/2a8a0b42-ac54-4d40-9188-e6a24bd80c7d)
+
+Demonstrates:
+- All buttons functional and responsive
+- Toast notifications for user feedback
+- Clean, accessible interface
+
+### Tested Features
+
+✅ **Settings Management**
+- Open/close settings modal
+- Save server URL and teacher name
+- Persistent storage using localStorage
+
+✅ **Target Word Configuration**
+- Set target word
+- Set expected IPA
+- Display current word configuration
+- IPA lookup button (requires backend)
+
+✅ **Recording Controls**
+- Test Microphone button (requests permissions)
+- Start/Stop Recording buttons
+- Visual recording indicators
+
+✅ **Global Controls**
+- Reveal/Hide All Results toggle
+- Export JSON functionality (downloads attempts)
+- Clear All with confirmation dialog
+
+✅ **User Experience**
+- Toast notifications for all actions
+- Responsive design
+- Accessible markup with ARIA labels
+- Confirmation dialogs for destructive actions
 
 ## 🔍 Troubleshooting
 
