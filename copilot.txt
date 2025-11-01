@@ -1,0 +1,141 @@
+
+Project title: "Pronunciation Competition — GitHub Pages frontend + Server-side analyzer"
+
+Goal:
+Generate a complete, ready-to-run project with:
+1. A **frontend single page app** (plain HTML/CSS/vanilla JS) that can be hosted on **GitHub Pages**. The frontend:
+   - lets a teacher set the server API URL (server hides the Gemini key),
+   - lets teacher enter a target WORD (and optionally expected IPA),
+   - supports recording student attempts via microphone (Start / Stop),
+   - requires teacher to manually name each attempt,
+   - shows attempt cards (audio playback, name editing, timestamp),
+   - sends each audio attempt to the server for analysis immediately,
+   - **does not reveal** analysis results until teacher clicks a global **"Reveal Results"** button or toggles visibility per card,
+   - persists attempts + analysis (if returned) in `localStorage`,
+   - allows exporting attempts as JSON,
+   - supports Chromium and Safari (Mac) — include a "Test mic" flow,
+   - UI built with Tailwind CDN (no build tools), accessible and mobile-friendly.
+
+2. A **server** (Node.js + Express) that:
+   - exposes a single POST endpoint `/api/analyze` that accepts multipart form data: `audio` file, `word`, `attemptName`, `expectedIPA` (optional), `meta` (optional),
+   - hides the Gemini API key in server env var `GEMINI_API_KEY`,
+   - has a config option to use a **forced-aligner** if installed locally (Montreal Forced Aligner or Gentle). If configured, the server should:
+     - run the aligner (spawn child process / CLI), align `audio` to the expected transcription, parse aligner output to get student phonemes with timestamps,
+     - compute deterministic phoneme-level comparison and score,
+   - if forced-aligner is **not** available, the server should:
+     - call the Gemini speech or multimodal audio endpoint to get a student IPA (or transcript),
+     - then optionally call Gemini (text model) with a structured prompt asking for `studentIPA` and per-phoneme hints,
+     - but **always** base the numerical score on the server's deterministic algorithm (Levenshtein/sequence alignment on phonemes) so scoring is reproducible,
+   - returns JSON with the exact structure described below,
+   - logs usage and returns helpful error messages (including when aligner is not installed),
+   - has CORS restricted to the frontend domain (commented clearly; for competition you may restrict to local network).
+
+3. A README with:
+   - local dev steps for frontend and server,
+   - sample `.env` file for GEMINI_API_KEY and GEMINI_MODEL (default to `gemini-2.5-pro`, fallback `gemini-2.5-flash`),
+   - instructions for installing Montreal Forced Aligner or Gentle (commands & config),
+   - deployment notes: host frontend on GitHub Pages, server on a controlled VM / local machine, and how to configure the frontend server URL.
+
+Implementation requirements & constraints:
+- No build pipeline (no webpack/parcel). Vanilla JS + Tailwind CDN + small server.
+- Use `MediaRecorder` for browser recording; export webm/ogg or wav. Provide Safari encoding fallback if needed.
+- Use `fetch()` on the client to send `FormData` to `/api/analyze`.
+- Server should save uploaded audio to `/tmp` or `uploads/`, with unique filename, then process and delete after use.
+- Server must NOT embed API key in code; read from `process.env.GEMINI_API_KEY`. Add `GEMINI_API_KEY` and `GEMINI_MODEL` env var usage in code.
+- Provide a clear config flag `USE_FORCED_ALIGNER=true|false` and sample commands for installing/configuring the aligner. If aligner used, server should call it and parse results.
+- Provide robust error handling and a "processing" spinner on the client for each attempt while analysis is pending.
+- The client UI must show expected IPA and student IPA when revealed, with student mismatches highlighted in red (for the mismatched phonemes/sounds).
+- Include a deterministic scoring algorithm on server: convert expected IPA and student IPA to arrays of phonemes, compute Levenshtein alignment, compute `scorePercent = Math.round( (matches / expectedPhonemeCount) * 100 )`. Return both raw counts and percentage.
+- Return `mismatches` array containing objects `{index, expected, actual, hint}` where `hint` comes from Gemini (or from a short server dictionary if Gemini not used).
+- Provide a fallback: if server cannot compute IPA, return transcript and ask frontend to show "Needs review" with teacher override.
+
+Exact API / JSON contracts:
+- Client → POST `/api/analyze` (multipart/form-data)
+  - fields: `audio` (file), `word` (string), `attemptName` (string), `expectedIPA` (string, optional)
+- Server → JSON 200:
+
+{
+“success”: true,
+“attemptName”: “Alice - Round 1”,
+“word”: “through”,
+“expectedIPA”: “θruː”,
+“studentIPA”: “truː”,
+“scorePercent”: 67,
+“matchCount”: 2,
+“expectedCount”: 3,
+“mismatches”: [
+{“index”:1, “expected”:“θ”, “actual”:“t”, “hint”:“Place the tongue between the teeth for /θ/ (voiceless)”},
+…
+],
+“aiComments”: “Student substituted /θ/ with /t/. Recommend practicing ‘th’ words with tongue between teeth.”,
+“alignment”: [ /* optional aligner output per phone with timings */ ],
+“rawAlignerOutput”: “…”, // if used
+“notes”: “processed-with-aligner” // or “processed-with-gemini”
+}
+
+- Error response:
+
+{ “success”: false, “error”: “Detailed message” }
+
+Server-side Gemini prompt templates (put these in server comments and used when calling Gemini):
+- **If using Gemini audio endpoint to get student IPA**: send the audio and the metadata:
+
+System prompt:
+“You are a precise phonetics assistant. Given a target word and the student’s audio, return JSON ONLY with fields expectedIPA, studentIPA. Use standard IPA symbols.”
+
+User content:
+“Target word: {word}
+Target IPA (if known): {expectedIPA or ‘’}
+
+Task: Listen to the attached audio clip of a student’s attempt, transcribe into IPA exactly, do not add commentary. Return JSON only.”
+
+- **If using Gemini text model for hints** (server sends text prompt):
+
+Prompt:
+“Compare expected IPA: {expectedIPA} with student IPA: {studentIPA}.
+Return a JSON array ‘mismatches’ containing objects with index, expected, actual, short hint (English, <= 80 characters).
+Also provide a short aiComments string summarizing the main issue.”
+
+Frontend behavior details (explicit):
+- Top-right Settings modal: server API base URL, teacher name; store server URL in `localStorage`.
+- Main area: input for `word`, optional `expectedIPA` (button "Lookup IPA" that calls server to ask Gemini for IPA of word if teacher doesn't know), "Set Word" button.
+- Controls: "Start Recording" (teacher presses), while recording show timer and waveform (optional simple animation), then "Stop" stores blob locally and shows a modal to enter attemptName (required).
+- After name saved, frontend uploads to server with `fetch('/api/analyze')`.
+- Show attempt card immediately with status "Processing..." until server responds. Once server responds, store analysis under attempt object in `localStorage` but keep results hidden until teacher clicks "Reveal Results".
+- A global "Reveal Results" button toggles all reveals; each card also has its own Reveal toggle.
+- When revealed: show expectedIPA, studentIPA where mismatched phonemes are wrapped in `<span class="incorrect">...</span>` and styled red; show scorePercent big, show aiComments/hints, and show a small "teacher override" input to edit score or notes.
+- Provide "Export JSON" and "Clear all" (with confirmation).
+
+Files to generate:
+- `index.html` (include Tailwind CDN; include accessibility attributes; include script tags to `app.js`).
+- `styles.css` (small extras).
+- `app.js` (all frontend logic, modular functions, comments).
+- `server/` folder:
+  - `server/package.json`
+  - `server/server.js` (Express server with `/api/analyze`).
+  - `server/.env.example`
+  - `server/README.md` with aligner install instructions, example env vars, and how to start server.
+  - `server/utils/aligner-wrapper.js` (if USE_FORCED_ALIGNER true, wrap the CLI call and parse output).
+- `README.md` at project root: explains how to run frontend on GitHub Pages and server on controlled environment, mention security caveats, and give test checklist.
+
+Quality requirements:
+- Well-commented code and small helper functions.
+- Provide descriptive console logs and meaningful network responses.
+- Do not embed any real API keys in code; require user to set `GEMINI_API_KEY` and `GEMINI_MODEL` in env.
+- Use `node-fetch` or built-in `fetch` (Node 18+) for server HTTP calls; include fallback and instructions.
+- Include `.gitignore` to ignore `node_modules`, `.env`, and `uploads/`.
+- Include sample test data and a small unit test for the scoring function (can be minimal).
+
+Extra notes for Copilot:
+- If the forced aligner parsing is tricky, generate a clear TODO comment and return aligner raw output so the developer can improve parsing locally.
+- Where Gemini API call code depends on provider-specific endpoints, create a `GEMINI_API_URL` env var and add comments: "Replace this with the official Gemini endpoint / SDK call as per your account & region; the code below is a template demonstrating where to plug the request."
+- Keep the frontend single file approach simple and easy for teachers to deploy to GitHub Pages.
+- Use semantic HTML, accessible buttons/labels, and keyboard support for important actions.
+
+End prompt: Generate the entire project now. Create all files stated above with full code, helpful comments, and README instructions. Make the produced code safe to run in a controlled competition environment. Thank you.
+
+If you’d like, I can now:
+	•	(A) generate the actual files here in the chat (client index.html, app.js, styles.css and server/server.js, etc.), or
+	•	(B) leave this Copilot prompt for you to paste into GitHub Copilot.
+
+You previously asked for option B — I’ve provided the ready prompt above. Say the word and I’ll generate the actual files here too.
