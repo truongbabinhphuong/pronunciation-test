@@ -1,11 +1,11 @@
 # Pronunciation Test
 
-A client-side web application for testing and analyzing pronunciation using Google's Gemini 1.5 Flash AI model. Teachers and students can record pronunciation attempts, and the app provides detailed feedback with IPA transcription and scoring.
+A client-side web application for testing and analyzing pronunciation using Google's Gemini 2.5 Flash AI model. Teachers and students can record pronunciation attempts, and the app provides detailed feedback with IPA transcription and scoring.
 
 ## 🎯 Features
 
 - **Client-side only** - No server required, runs entirely in your browser
-- **Gemini 1.5 Flash AI** - Uses Google's latest AI model for pronunciation analysis
+- **Gemini 2.5 Flash AI** - Uses Google's latest AI model for pronunciation analysis
 - **Microphone recording** - WebRTC MediaRecorder API with cross-browser support
 - **IPA transcription** - Automatic International Phonetic Alphabet transcription
 - **Real-time feedback** - Detailed phoneme-by-phoneme comparison and hints
@@ -119,8 +119,8 @@ pronunciation-test/
 
 ### Gemini API Integration
 
-The app uses Google's Gemini 1.5 Flash model via the REST API:
-- **Endpoint**: `https://generativelanguage.googleapis.com/v1beta/models/gemini-1.5-flash-latest:generateContent`
+The app uses Google's Gemini 2.5 Flash model via the REST API:
+- **Endpoint**: `https://generativelanguage.googleapis.com/v1beta/models/gemini-2.5-flash:generateContent`
 - **Features used**:
   - Text generation for IPA lookup
   - Audio analysis for pronunciation transcription
