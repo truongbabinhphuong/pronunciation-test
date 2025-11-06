@@ -223,7 +223,7 @@ async function getIPAFromGemini(word) {
         
         // Gemini API requires key in URL parameter (official API design)
         const response = await fetch(
-            `https://generativelanguage.googleapis.com/v1beta/models/gemini-1.5-flash-latest:generateContent?key=${state.geminiApiKey}`,
+            `https://generativelanguage.googleapis.com/v1beta/models/gemini-2.5-flash:generateContent?key=${state.geminiApiKey}`,
             {
                 method: 'POST',
                 headers: {
@@ -515,7 +515,7 @@ Return just the IPA symbols for what you hear.`;
 
         // Gemini API requires key in URL parameter (official API design)
         const response = await fetch(
-            `https://generativelanguage.googleapis.com/v1beta/models/gemini-1.5-flash-latest:generateContent?key=${state.geminiApiKey}`,
+            `https://generativelanguage.googleapis.com/v1beta/models/gemini-2.5-flash:generateContent?key=${state.geminiApiKey}`,
             {
                 method: 'POST',
                 headers: {
@@ -598,7 +598,7 @@ Return ONLY valid JSON, no additional text.`;
 
         // Gemini API requires key in URL parameter (official API design)
         const response = await fetch(
-            `https://generativelanguage.googleapis.com/v1beta/models/gemini-1.5-flash-latest:generateContent?key=${state.geminiApiKey}`,
+            `https://generativelanguage.googleapis.com/v1beta/models/gemini-2.5-flash:generateContent?key=${state.geminiApiKey}`,
             {
                 method: 'POST',
                 headers: {
