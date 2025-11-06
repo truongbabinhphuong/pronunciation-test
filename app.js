@@ -251,6 +251,21 @@ async function getIPAFromGemini(word) {
         
         const data = await response.json();
         
+        // Log the full response for debugging
+        console.log('Gemini API response:', data);
+        
+        // Check for error in response
+        if (data.error) {
+            console.error('Gemini API returned error:', data.error);
+            throw new Error(data.error.message || 'Gemini API error');
+        }
+        
+        // Check for blocked content
+        if (data.candidates && data.candidates[0]?.finishReason === 'SAFETY') {
+            console.error('Content blocked by safety filters');
+            throw new Error('Content blocked by safety filters');
+        }
+        
         if (data.candidates && data.candidates[0]?.content?.parts?.[0]?.text) {
             let ipa = data.candidates[0].content.parts[0].text.trim();
             // Remove common formatting
@@ -260,6 +275,8 @@ async function getIPAFromGemini(word) {
             return ipa;
         }
         
+        // If we get here, the response structure is unexpected
+        console.error('Unexpected API response structure:', JSON.stringify(data));
         return null;
     } catch (error) {
         console.error('Error calling Gemini API for IPA:', error);
