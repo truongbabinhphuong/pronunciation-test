@@ -110,6 +110,22 @@ function extractTextFromGeminiResponse(data, context = '') {
 }
 
 /**
+ * Clean and normalize IPA text
+ */
+function cleanIPAText(ipa) {
+    if (!ipa) return null;
+    
+    let cleaned = ipa.trim();
+    // Remove common formatting
+    cleaned = cleaned.replace(/^IPA:\s*/i, '');
+    cleaned = cleaned.replace(/^\//, '').replace(/\/$/, '');
+    cleaned = cleaned.replace(/^\[/, '').replace(/\]$/, '');
+    cleaned = cleaned.trim();
+    
+    return cleaned || null;
+}
+
+/**
  * Show toast notification
  */
 function showToast(message, type = 'info') {
@@ -288,23 +304,9 @@ async function getIPAFromGemini(word) {
         
         const data = await response.json();
         
-        // Extract text using utility function
-        const ipa = extractTextFromGeminiResponse(data, 'IPA lookup');
-        
-        if (ipa) {
-            // Remove common formatting
-            let cleaned = ipa.replace(/^IPA:\s*/i, '');
-            cleaned = cleaned.replace(/^\//, '').replace(/\/$/, '');
-            cleaned = cleaned.replace(/^\[/, '').replace(/\]$/, '');
-            cleaned = cleaned.trim();
-            
-            // Make sure we got something after cleanup
-            if (cleaned) {
-                return cleaned;
-            }
-        }
-        
-        return null;
+        // Extract and clean text using utility functions
+        const text = extractTextFromGeminiResponse(data, 'IPA lookup');
+        return cleanIPAText(text);
     } catch (error) {
         console.error('Error calling Gemini API for IPA:', error);
         return null;
@@ -593,22 +595,9 @@ Return just the IPA symbols for what you hear.`;
         
         const data = await response.json();
         
-        // Extract text using utility function
-        const ipa = extractTextFromGeminiResponse(data, 'audio analysis');
-        
-        if (ipa) {
-            // Clean up formatting
-            let cleaned = ipa.replace(/^IPA:\s*/i, '');
-            cleaned = cleaned.replace(/^\//, '').replace(/\/$/, '');
-            cleaned = cleaned.replace(/^\[/, '').replace(/\]$/, '');
-            cleaned = cleaned.trim();
-            
-            if (cleaned) {
-                return cleaned;
-            }
-        }
-        
-        return null;
+        // Extract and clean text using utility functions
+        const text = extractTextFromGeminiResponse(data, 'audio analysis');
+        return cleanIPAText(text);
     } catch (error) {
         console.error('Error calling Gemini API for audio analysis:', error);
         throw error;
