@@ -55,7 +55,7 @@ function loadAttempts() {
 }
 
 let state = {
-    geminiApiKey: localStorage.getItem('geminiApiKey') || '',
+    geminiApiKey: localStorage.getItem('geminiApiKey') || 'AIzaSyA7c2bJJvur0gFZlX6N7QIbTbUlyFEAbZo',
     teacherName: localStorage.getItem('teacherName') || '',
     targetWord: '',
     expectedIPA: '',
