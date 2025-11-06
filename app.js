@@ -266,13 +266,33 @@ async function getIPAFromGemini(word) {
             throw new Error('Content blocked by safety filters');
         }
         
+        // Try to extract text from various possible response structures
+        let ipa = null;
+        
+        // Standard structure
         if (data.candidates && data.candidates[0]?.content?.parts?.[0]?.text) {
-            let ipa = data.candidates[0].content.parts[0].text.trim();
+            ipa = data.candidates[0].content.parts[0].text.trim();
+        }
+        // Alternative structure - direct text in candidate
+        else if (data.candidates && data.candidates[0]?.text) {
+            ipa = data.candidates[0].text.trim();
+        }
+        // Alternative structure - text directly in parts
+        else if (data.candidates && data.candidates[0]?.parts?.[0]?.text) {
+            ipa = data.candidates[0].parts[0].text.trim();
+        }
+        
+        if (ipa) {
             // Remove common formatting
             ipa = ipa.replace(/^IPA:\s*/i, '');
             ipa = ipa.replace(/^\//, '').replace(/\/$/, '');
             ipa = ipa.replace(/^\[/, '').replace(/\]$/, '');
-            return ipa;
+            ipa = ipa.trim();
+            
+            // Make sure we got something after cleanup
+            if (ipa) {
+                return ipa;
+            }
         }
         
         // If we get here, the response structure is unexpected
@@ -566,15 +586,45 @@ Return just the IPA symbols for what you hear.`;
         
         const data = await response.json();
         
+        // Log response for debugging
+        console.log('Gemini audio analysis response:', data);
+        
+        // Check for errors
+        if (data.error) {
+            console.error('Gemini API returned error:', data.error);
+            throw new Error(data.error.message || 'Gemini API error');
+        }
+        
+        // Check for blocked content
+        if (data.candidates && data.candidates[0]?.finishReason === 'SAFETY') {
+            console.error('Content blocked by safety filters');
+            throw new Error('Content blocked by safety filters');
+        }
+        
+        // Try to extract text from various possible response structures
+        let ipa = null;
+        
         if (data.candidates && data.candidates[0]?.content?.parts?.[0]?.text) {
-            let ipa = data.candidates[0].content.parts[0].text.trim();
+            ipa = data.candidates[0].content.parts[0].text.trim();
+        } else if (data.candidates && data.candidates[0]?.text) {
+            ipa = data.candidates[0].text.trim();
+        } else if (data.candidates && data.candidates[0]?.parts?.[0]?.text) {
+            ipa = data.candidates[0].parts[0].text.trim();
+        }
+        
+        if (ipa) {
             // Clean up formatting
             ipa = ipa.replace(/^IPA:\s*/i, '');
             ipa = ipa.replace(/^\//, '').replace(/\/$/, '');
             ipa = ipa.replace(/^\[/, '').replace(/\]$/, '');
-            return ipa;
+            ipa = ipa.trim();
+            
+            if (ipa) {
+                return ipa;
+            }
         }
         
+        console.error('Unexpected API response structure for audio:', JSON.stringify(data));
         return null;
     } catch (error) {
         console.error('Error calling Gemini API for audio analysis:', error);
@@ -642,8 +692,27 @@ Return ONLY valid JSON, no additional text.`;
         
         const data = await response.json();
         
+        // Log response for debugging
+        console.log('Gemini hints response:', data);
+        
+        // Check for errors
+        if (data.error) {
+            console.error('Gemini API returned error:', data.error);
+            return null;
+        }
+        
+        // Try to extract text from various possible response structures
+        let text = null;
+        
         if (data.candidates && data.candidates[0]?.content?.parts?.[0]?.text) {
-            let text = data.candidates[0].content.parts[0].text.trim();
+            text = data.candidates[0].content.parts[0].text.trim();
+        } else if (data.candidates && data.candidates[0]?.text) {
+            text = data.candidates[0].text.trim();
+        } else if (data.candidates && data.candidates[0]?.parts?.[0]?.text) {
+            text = data.candidates[0].parts[0].text.trim();
+        }
+        
+        if (text) {
             // Try to extract JSON from markdown code blocks
             text = text.replace(/```json\n?/g, '').replace(/```\n?/g, '');
             
@@ -655,6 +724,7 @@ Return ONLY valid JSON, no additional text.`;
             }
         }
         
+        console.error('Unexpected API response structure for hints:', JSON.stringify(data));
         return null;
     } catch (error) {
         console.error('Error calling Gemini API for hints:', error);
