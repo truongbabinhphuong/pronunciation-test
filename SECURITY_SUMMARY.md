@@ -2,7 +2,7 @@
 
 ## Overview
 
-This pronunciation test application is a client-side web application that uses Google's Gemini 2.5 Flash AI model for pronunciation analysis. The application is designed for **controlled environments** such as classrooms and personal use.
+This pronunciation test application is a client-side web application that uses Google's Gemini 1.5 Flash AI model for pronunciation analysis. The application is designed for **controlled environments** such as classrooms and personal use.
 
 ## Security Architecture
 
