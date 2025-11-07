@@ -55,7 +55,7 @@ function loadAttempts() {
 }
 
 let state = {
-    geminiApiKey: localStorage.getItem('geminiApiKey') || 'AIzaSyA7c2bJJvur0gFZlX6N7QIbTbUlyFEAbZo',
+    geminiApiKey: localStorage.getItem('geminiApiKey') || 'AIzaSyDrO2mpzWSsX_V8GEYwmD_OyswP3l9PwvM',
     teacherName: localStorage.getItem('teacherName') || '',
     targetWord: '',
     expectedIPA: '',
@@ -166,6 +166,10 @@ async function saveAttempts() {
  */
 function blobToBase64WithPrefix(blob) {
     return new Promise((resolve, reject) => {
+        if (!blob || !(blob instanceof Blob)) {
+            reject(new Error('Invalid blob: Argument must be an instance of Blob'));
+            return;
+        }
         const reader = new FileReader();
         reader.onloadend = () => {
             resolve(reader.result);
@@ -544,6 +548,10 @@ async function getStudentIPAFromAudio(audioBlob, word, expectedIPA) {
         throw new Error('Gemini API key not configured');
     }
     
+    if (!audioBlob || !(audioBlob instanceof Blob)) {
+        throw new Error('Invalid audio: No audio data available for analysis');
+    }
+    
     try {
         // Convert blob to base64
         const audioBase64 = await blobToBase64(audioBlob);
@@ -697,6 +705,10 @@ Return ONLY valid JSON, no additional text.`;
  */
 function blobToBase64(blob) {
     return new Promise((resolve, reject) => {
+        if (!blob || !(blob instanceof Blob)) {
+            reject(new Error('Invalid blob: Argument must be an instance of Blob'));
+            return;
+        }
         const reader = new FileReader();
         reader.onloadend = () => {
             // Remove the data URL prefix (e.g., "data:audio/webm;base64,")
@@ -870,6 +882,11 @@ async function uploadAttempt(attempt) {
     try {
         if (!state.geminiApiKey) {
             throw new Error('Gemini API key not configured. Please configure it in Settings.');
+        }
+        
+        // Validate audio blob
+        if (!attempt.audioBlob || !(attempt.audioBlob instanceof Blob)) {
+            throw new Error('Audio recording is missing or invalid. Please record again.');
         }
         
         // Get expected IPA if not provided
