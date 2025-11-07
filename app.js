@@ -55,6 +55,9 @@ function loadAttempts() {
 }
 
 let state = {
+    // Note: API key is stored here as a default for client-side use only
+    // This is intentional for this educational tool - see README for security considerations
+    // Users can override this key in Settings, and it's stored in localStorage
     geminiApiKey: localStorage.getItem('geminiApiKey') || 'AIzaSyDrO2mpzWSsX_V8GEYwmD_OyswP3l9PwvM',
     teacherName: localStorage.getItem('teacherName') || '',
     targetWord: '',
@@ -163,10 +166,25 @@ async function saveAttempts() {
 
 /**
  * Validate that a value is a valid Blob instance
+ * @param {any} blob - The value to validate
+ * @throws {Error} If blob is null, undefined, or not an instance of Blob
  */
 function validateBlob(blob) {
     if (!blob || !(blob instanceof Blob)) {
         throw new Error('Invalid blob: Argument must be an instance of Blob');
+    }
+}
+
+/**
+ * Validate audio blob and throw user-friendly error if invalid
+ * @param {any} audioBlob - The audio blob to validate
+ * @throws {Error} If audioBlob is invalid with a user-friendly message
+ */
+function validateAudioBlob(audioBlob) {
+    try {
+        validateBlob(audioBlob);
+    } catch (error) {
+        throw new Error('Audio recording is missing or invalid. Please record again.');
     }
 }
 
@@ -559,11 +577,7 @@ async function getStudentIPAFromAudio(audioBlob, word, expectedIPA) {
     }
     
     // Validate audio blob using the shared validation function
-    try {
-        validateBlob(audioBlob);
-    } catch (error) {
-        throw new Error('Invalid audio: No audio data available for analysis');
-    }
+    validateAudioBlob(audioBlob);
     
     try {
         // Convert blob to base64
@@ -899,11 +913,7 @@ async function uploadAttempt(attempt) {
         }
         
         // Validate audio blob using the shared validation function
-        try {
-            validateBlob(attempt.audioBlob);
-        } catch (error) {
-            throw new Error('Audio recording is missing or invalid. Please record again.');
-        }
+        validateAudioBlob(attempt.audioBlob);
         
         // Get expected IPA if not provided
         let expectedIPA = attempt.expectedIPA;
