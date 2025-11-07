@@ -55,7 +55,7 @@ function loadAttempts() {
 }
 
 let state = {
-    geminiApiKey: localStorage.getItem('geminiApiKey') || '',
+    geminiApiKey: localStorage.getItem('geminiApiKey') || 'AIzaSyA7c2bJJvur0gFZlX6N7QIbTbUlyFEAbZo',
     teacherName: localStorage.getItem('teacherName') || '',
     targetWord: '',
     expectedIPA: '',
@@ -71,6 +71,59 @@ let state = {
 // ============================================================================
 // UTILITY FUNCTIONS
 // ============================================================================
+
+/**
+ * Extract text from Gemini API response handling various response structures
+ */
+function extractTextFromGeminiResponse(data, context = '') {
+    // Log response for debugging
+    console.log(`Gemini API response (${context}):`, data);
+    
+    // Check for errors
+    if (data.error) {
+        console.error(`Gemini API returned error (${context}):`, data.error);
+        throw new Error(data.error.message || 'Gemini API error');
+    }
+    
+    // Check for blocked content
+    if (data.candidates && data.candidates[0]?.finishReason === 'SAFETY') {
+        console.error(`Content blocked by safety filters (${context})`);
+        throw new Error('Content blocked by safety filters');
+    }
+    
+    // Try to extract text from various possible response structures
+    let text = null;
+    
+    if (data.candidates && data.candidates[0]?.content?.parts?.[0]?.text) {
+        text = data.candidates[0].content.parts[0].text.trim();
+    } else if (data.candidates && data.candidates[0]?.text) {
+        text = data.candidates[0].text.trim();
+    } else if (data.candidates && data.candidates[0]?.parts?.[0]?.text) {
+        text = data.candidates[0].parts[0].text.trim();
+    }
+    
+    if (!text) {
+        console.error(`Unexpected API response structure (${context}):`, JSON.stringify(data));
+    }
+    
+    return text;
+}
+
+/**
+ * Clean and normalize IPA text
+ */
+function cleanIPAText(ipa) {
+    if (!ipa) return null;
+    
+    let cleaned = ipa.trim();
+    // Remove common formatting
+    cleaned = cleaned.replace(/^IPA:\s*/i, '');
+    cleaned = cleaned.replace(/^\//, '').replace(/\/$/, '');
+    cleaned = cleaned.replace(/^\[/, '').replace(/\]$/, '');
+    cleaned = cleaned.trim();
+    
+    return cleaned || null;
+}
 
 /**
  * Show toast notification
@@ -251,16 +304,9 @@ async function getIPAFromGemini(word) {
         
         const data = await response.json();
         
-        if (data.candidates && data.candidates[0]?.content?.parts?.[0]?.text) {
-            let ipa = data.candidates[0].content.parts[0].text.trim();
-            // Remove common formatting
-            ipa = ipa.replace(/^IPA:\s*/i, '');
-            ipa = ipa.replace(/^\//, '').replace(/\/$/, '');
-            ipa = ipa.replace(/^\[/, '').replace(/\]$/, '');
-            return ipa;
-        }
-        
-        return null;
+        // Extract and clean text using utility functions
+        const text = extractTextFromGeminiResponse(data, 'IPA lookup');
+        return cleanIPAText(text);
     } catch (error) {
         console.error('Error calling Gemini API for IPA:', error);
         return null;
@@ -549,16 +595,9 @@ Return just the IPA symbols for what you hear.`;
         
         const data = await response.json();
         
-        if (data.candidates && data.candidates[0]?.content?.parts?.[0]?.text) {
-            let ipa = data.candidates[0].content.parts[0].text.trim();
-            // Clean up formatting
-            ipa = ipa.replace(/^IPA:\s*/i, '');
-            ipa = ipa.replace(/^\//, '').replace(/\/$/, '');
-            ipa = ipa.replace(/^\[/, '').replace(/\]$/, '');
-            return ipa;
-        }
-        
-        return null;
+        // Extract and clean text using utility functions
+        const text = extractTextFromGeminiResponse(data, 'audio analysis');
+        return cleanIPAText(text);
     } catch (error) {
         console.error('Error calling Gemini API for audio analysis:', error);
         throw error;
@@ -625,8 +664,16 @@ Return ONLY valid JSON, no additional text.`;
         
         const data = await response.json();
         
-        if (data.candidates && data.candidates[0]?.content?.parts?.[0]?.text) {
-            let text = data.candidates[0].content.parts[0].text.trim();
+        // Extract text using utility function (catching errors gracefully for hints)
+        let text = null;
+        try {
+            text = extractTextFromGeminiResponse(data, 'hints');
+        } catch (error) {
+            console.error('Error extracting hints response:', error);
+            return null;
+        }
+        
+        if (text) {
             // Try to extract JSON from markdown code blocks
             text = text.replace(/```json\n?/g, '').replace(/```\n?/g, '');
             
