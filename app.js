@@ -162,20 +162,30 @@ async function saveAttempts() {
 }
 
 /**
+ * Validate that a value is a valid Blob instance
+ */
+function validateBlob(blob) {
+    if (!blob || !(blob instanceof Blob)) {
+        throw new Error('Invalid blob: Argument must be an instance of Blob');
+    }
+}
+
+/**
  * Convert blob to base64 with data URL prefix
  */
 function blobToBase64WithPrefix(blob) {
     return new Promise((resolve, reject) => {
-        if (!blob || !(blob instanceof Blob)) {
-            reject(new Error('Invalid blob: Argument must be an instance of Blob'));
-            return;
+        try {
+            validateBlob(blob);
+            const reader = new FileReader();
+            reader.onloadend = () => {
+                resolve(reader.result);
+            };
+            reader.onerror = reject;
+            reader.readAsDataURL(blob);
+        } catch (error) {
+            reject(error);
         }
-        const reader = new FileReader();
-        reader.onloadend = () => {
-            resolve(reader.result);
-        };
-        reader.onerror = reject;
-        reader.readAsDataURL(blob);
     });
 }
 
@@ -548,7 +558,10 @@ async function getStudentIPAFromAudio(audioBlob, word, expectedIPA) {
         throw new Error('Gemini API key not configured');
     }
     
-    if (!audioBlob || !(audioBlob instanceof Blob)) {
+    // Validate audio blob using the shared validation function
+    try {
+        validateBlob(audioBlob);
+    } catch (error) {
         throw new Error('Invalid audio: No audio data available for analysis');
     }
     
@@ -705,18 +718,19 @@ Return ONLY valid JSON, no additional text.`;
  */
 function blobToBase64(blob) {
     return new Promise((resolve, reject) => {
-        if (!blob || !(blob instanceof Blob)) {
-            reject(new Error('Invalid blob: Argument must be an instance of Blob'));
-            return;
+        try {
+            validateBlob(blob);
+            const reader = new FileReader();
+            reader.onloadend = () => {
+                // Remove the data URL prefix (e.g., "data:audio/webm;base64,")
+                const base64 = reader.result.split(',')[1];
+                resolve(base64);
+            };
+            reader.onerror = reject;
+            reader.readAsDataURL(blob);
+        } catch (error) {
+            reject(error);
         }
-        const reader = new FileReader();
-        reader.onloadend = () => {
-            // Remove the data URL prefix (e.g., "data:audio/webm;base64,")
-            const base64 = reader.result.split(',')[1];
-            resolve(base64);
-        };
-        reader.onerror = reject;
-        reader.readAsDataURL(blob);
     });
 }
 
@@ -884,8 +898,10 @@ async function uploadAttempt(attempt) {
             throw new Error('Gemini API key not configured. Please configure it in Settings.');
         }
         
-        // Validate audio blob
-        if (!attempt.audioBlob || !(attempt.audioBlob instanceof Blob)) {
+        // Validate audio blob using the shared validation function
+        try {
+            validateBlob(attempt.audioBlob);
+        } catch (error) {
             throw new Error('Audio recording is missing or invalid. Please record again.');
         }
         
